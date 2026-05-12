@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 实现简易计算器
 
 ### 简介
@@ -49,3 +50,11 @@
 2. HarmonyOS系统：HarmonyOS 5.0.5 Release及以上。
 3. DevEco Studio版本：DevEco Studio 6.0.2 Release及以上。
 4. HarmonyOS SDK版本：HarmonyOS 6.0.2 Release SDK及以上。
+=======
+想法：参与工具类开源项目的贡献
+
+目标：掌握Git基础命令和Github协作流程
+
+
+
+>>>>>>> 87575553977e1ecb9ef9a2ade194eb59ffcd02fd
