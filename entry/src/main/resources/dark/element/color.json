@@ -2,19 +2,19 @@
   "color": [
     {
       "name": "start_window_background",
-      "value": "#FFFFFF"
+      "value": "#1A1A1A"
     },
     {
       "name": "input_back_color",
-      "value": "#F5F5F5"
+      "value": "#2A2A2A"
     },
     {
       "name": "text_color",
-      "value": "#182431"
+      "value": "#FFFFFF"
     },
     {
       "name": "border_color",
-      "value": "#F5F5F5"
+      "value": "#3A3A3A"
     },
     {
       "name": "equals_back_color",
@@ -22,11 +22,11 @@
     },
     {
       "name": "row_back_color",
-      "value": "#F8F8FF"
+      "value": "#1F1F1F"
     },
     {
       "name": "column_back_color",
-      "value": "#F5F5F5"
+      "value": "#1A1A1A"
     },
     {
       "name": "history_button_color",
@@ -34,35 +34,35 @@
     },
     {
       "name": "history_dialog_bg",
-      "value": "#FFFFFF"
+      "value": "#2A2A2A"
     },
     {
       "name": "history_item_bg",
-      "value": "#F5F5F5"
+      "value": "#3A3A3A"
     },
     {
       "name": "history_divider_color",
-      "value": "#E5E5E5"
+      "value": "#4A4A4A"
     },
     {
       "name": "history_result_color",
-      "value": "#007DFF"
+      "value": "#4DA3FF"
     },
     {
       "name": "key_back_color",
-      "value": "#FFFFFF"
+      "value": "#3A3A3A"
     },
     {
       "name": "input_text_color",
-      "value": "#182431"
+      "value": "#FFFFFF"
     },
     {
       "name": "theme_button_color",
-      "value": "#E5E5E5"
+      "value": "#4A4A4A"
     },
     {
       "name": "clear_text_color",
-      "value": "#FF0000"
+      "value": "#FF6B6B"
     }
   ]
 }

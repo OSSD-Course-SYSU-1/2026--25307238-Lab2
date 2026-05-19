@@ -85,7 +85,8 @@
         "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\arkui\\ComponentContent.d.ts",
         "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\arkui\\NodeController.d.ts",
         "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\arkui\\XComponentNode.d.ts",
-        "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\build-tools\\ets-loader\\declarations\\common.d.ts"
+        "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\build-tools\\ets-loader\\declarations\\common.d.ts",
+        "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\common\\util\\ThemeUtil.ets"
       ],
       "error": false
     },
@@ -124,7 +125,7 @@
       "error": false
     },
     "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\entryability\\EntryAbility.ts": {
-      "mtimeMs": 1773993770000,
+      "mtimeMs": 1779194474054.0647,
       "children": [
         "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.app.ability.AbilityConstant.d.ts",
         "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.app.ability.UIAbility.d.ts",
@@ -469,7 +470,8 @@
         "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.window.d.ts",
         "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\application\\UIAbilityContext.d.ts",
         "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\application\\ApplicationContext.d.ts",
-        "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\application\\UIExtensionContext.d.ts"
+        "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\application\\UIExtensionContext.d.ts",
+        "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\common\\util\\ThemeUtil.ets"
       ],
       "error": false
     },
@@ -718,7 +720,8 @@
         "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\ability\\abilityResult.d.ts"
       ],
       "parent": [
-        "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.arkui.UIContext.d.ts"
+        "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.arkui.UIContext.d.ts",
+        "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\common\\util\\ThemeUtil.ets"
       ],
       "error": false
     },
@@ -1555,13 +1558,16 @@
       "error": false
     },
     "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\pages\\HomePage.ets": {
-      "mtimeMs": 1773993770000,
+      "mtimeMs": 1779194126041.082,
       "children": [
         "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\common\\util\\Logger.ets",
         "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\common\\util\\CalculateUtil.ets",
         "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\common\\util\\CheckEmptyUtil.ets",
+        "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\common\\util\\HistoryUtil.ets",
+        "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\common\\util\\ThemeUtil.ets",
         "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\viewmodel\\PresskeysViewModel.ets",
         "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\viewmodel\\PressKeysItem.ets",
+        "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\viewmodel\\HistoryItem.ets",
         "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\common\\constants\\CommonConstants.ets"
       ],
       "parent": [],
@@ -2032,6 +2038,40 @@
         "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.security.cert.d.ts"
       ],
       "error": false
+    },
+    "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\common\\util\\HistoryUtil.ets": {
+      "mtimeMs": 1779193370473.151,
+      "children": [
+        "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\viewmodel\\HistoryItem.ets"
+      ],
+      "parent": [
+        "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\pages\\HomePage.ets"
+      ],
+      "error": false
+    },
+    "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\viewmodel\\HistoryItem.ets": {
+      "mtimeMs": 1779192731907.681,
+      "children": [],
+      "parent": [
+        "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\pages\\HomePage.ets",
+        "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\common\\util\\HistoryUtil.ets"
+      ],
+      "error": false
+    },
+    "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\common\\util\\ThemeUtil.ets": {
+      "mtimeMs": 1779194624306.1792,
+      "children": [
+        "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.app.ability.ConfigurationConstant.d.ts",
+        "C:\\Program Files\\Huawei\\DevEco Studio\\sdk\\default\\openharmony\\ets\\api\\@ohos.app.ability.common.d.ts"
+      ],
+      "parent": [
+        "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\entryability\\EntryAbility.ts",
+        "D:\\Dev\\MyApp\\entry\\src\\main\\ets\\pages\\HomePage.ets"
+      ],
+      "error": true,
+      "errorCodes": [
+        28040
+      ]
     }
   }
 }

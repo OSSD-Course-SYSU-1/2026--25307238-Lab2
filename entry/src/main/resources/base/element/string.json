@@ -15,6 +15,34 @@
     {
       "name": "error",
       "value": "error"
+    },
+    {
+      "name": "history_button",
+      "value": "历史记录"
+    },
+    {
+      "name": "history_title",
+      "value": "计算历史"
+    },
+    {
+      "name": "history_clear",
+      "value": "清空"
+    },
+    {
+      "name": "history_empty",
+      "value": "暂无历史记录"
+    },
+    {
+      "name": "history_close",
+      "value": "关闭"
+    },
+    {
+      "name": "theme_light",
+      "value": "浅色"
+    },
+    {
+      "name": "theme_dark",
+      "value": "深色"
     }
   ]
 }

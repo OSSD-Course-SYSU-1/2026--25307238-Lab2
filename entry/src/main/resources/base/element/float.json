@@ -71,6 +71,30 @@
     {
       "name": "margin_right",
       "value": "19vp"
+    },
+    {
+      "name": "history_button_size",
+      "value": "50vp"
+    },
+    {
+      "name": "history_dialog_width",
+      "value": "320vp"
+    },
+    {
+      "name": "history_dialog_height",
+      "value": "450vp"
+    },
+    {
+      "name": "history_item_height",
+      "value": "60vp"
+    },
+    {
+      "name": "history_font_size",
+      "value": "18fp"
+    },
+    {
+      "name": "history_title_size",
+      "value": "22fp"
     }
   ]
 }
