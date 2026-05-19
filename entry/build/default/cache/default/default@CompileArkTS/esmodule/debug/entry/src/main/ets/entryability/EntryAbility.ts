@@ -7,6 +7,8 @@ import hilog from "@ohos:hilog";
 export default class EntryAbility extends UIAbility {
     onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
         hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onCreate');
+        // 将 ApplicationContext 存入 AppStorage，供主题管理使用
+        AppStorage.setOrCreate('appContext', this.context.getApplicationContext());
     }
     onDestroy() {
         hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onDestroy');
