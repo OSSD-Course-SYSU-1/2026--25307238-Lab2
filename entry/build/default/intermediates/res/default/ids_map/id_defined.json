@@ -247,5 +247,25 @@
 			"type":	"color",
 			"name":	"theme_button_color",
 			"id":	"0x0100003D"
+		}, {
+			"type":	"media",
+			"name":	"ic_add_blue",
+			"id":	"0x0100003E"
+		}, {
+			"type":	"media",
+			"name":	"ic_div_blue",
+			"id":	"0x0100003F"
+		}, {
+			"type":	"media",
+			"name":	"ic_equ_blue",
+			"id":	"0x01000040"
+		}, {
+			"type":	"media",
+			"name":	"ic_min_blue",
+			"id":	"0x01000041"
+		}, {
+			"type":	"media",
+			"name":	"ic_mul_blue",
+			"id":	"0x01000042"
 		}]
 }

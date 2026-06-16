@@ -52,11 +52,16 @@ float text_margin_bottom 0x0100001d
 float text_margin_right 0x0100001e
 media app_icon 0x01000001
 media ic_add 0x0100001f
+media ic_add_blue 0x0100003e
 media ic_clean 0x01000020
 media ic_del 0x01000021
 media ic_div 0x01000022
+media ic_div_blue 0x0100003f
 media ic_equ 0x01000023
+media ic_equ_blue 0x01000040
 media ic_min 0x01000024
+media ic_min_blue 0x01000041
 media ic_mul 0x01000025
+media ic_mul_blue 0x01000042
 media icon 0x01000026
 profile main_pages 0x01000027
