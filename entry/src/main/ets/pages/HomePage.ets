@@ -18,10 +18,13 @@ import CalculateUtil from '../common/util/CalculateUtil';
 import CheckEmptyUtil from '../common/util/CheckEmptyUtil';
 import HistoryUtil from '../common/util/HistoryUtil';
 import ThemeUtil, { ThemeMode } from '../common/util/ThemeUtil';
+import FloatWindowUtil from '../common/util/FloatWindowUtil';
 import keysModel from '../viewmodel/PresskeysViewModel';
 import { PressKeysBean } from '../viewmodel/PressKeysItem';
 import { HistoryItem } from '../viewmodel/HistoryItem';
 import { CommonConstants, Symbol } from '../common/constants/CommonConstants';
+import { common } from '@kit.AbilityKit';
+import { promptAction } from '@kit.ArkUI';
 
 @Entry
 @Component
@@ -35,6 +38,14 @@ struct HomePage {
   @State historyList: Array<HistoryItem> = [];
   /** 当前主题模式（监听 AppStorage 变化） */
   @StorageLink('currentThemeMode') currentThemeMode: number = ThemeMode.LIGHT;
+  /** 悬浮计算器Sheet显示状态 */
+  @State isFloatSheetShow: boolean = false;
+  /** 随机数下限 */
+  @State randomMin: string = '';
+  /** 随机数上限 */
+  @State randomMax: string = '';
+  /** 随机数错误提示 */
+  @State randomError: string = '';
 
   /** 主题管理键名 */
   private static readonly THEME_KEY: string = 'currentThemeMode';
@@ -47,7 +58,7 @@ struct HomePage {
 
   build() {
     Column() {
-      // 顶部按钮区域：主题切换 + 历史记录
+      // 顶部按钮区域：主题切换 + 悬浮窗 + 历史记录
       Row() {
         // 主题切换按钮（左上角）
         Button({ type: ButtonType.Circle }) {
@@ -72,6 +83,20 @@ struct HomePage {
 
         Blank()
 
+        // 悬浮窗按钮（右上角）
+        Button({ type: ButtonType.Circle }) {
+          Text('📱')
+            .fontSize(16)
+        }
+        .width($r('app.float.history_button_size'))
+        .height($r('app.float.history_button_size'))
+        .backgroundColor($r('app.color.history_button_color'))
+        .margin({ right: 8 })
+        .onClick(() => {
+          // 显示悬浮计算器Sheet
+          this.isFloatSheetShow = true;
+        })
+
         // 历史记录按钮（右上角）
         Button({ type: ButtonType.Circle }) {
           Text($r('app.string.history_button'))
@@ -93,6 +118,79 @@ struct HomePage {
         right: $r('app.float.input_margin_right'),
         top: '20vp'
       })
+
+      // 随机数模块
+      Column() {
+        Row({ space: 8 }) {
+          Text('随机数区间：')
+            .fontSize(14)
+            .fontColor($r('app.color.text_color'))
+          
+          TextInput({ placeholder: '下限', text: this.randomMin })
+            .width(80)
+            .height(36)
+            .fontSize(14)
+            .type(InputType.Number)
+            .textAlign(TextAlign.Center)
+            .onChange((value: string) => {
+              this.randomMin = value;
+              this.randomError = '';
+            })
+          
+          Text('~')
+            .fontSize(16)
+            .fontColor($r('app.color.text_color'))
+            .fontWeight(FontWeight.Bold)
+          
+          TextInput({ placeholder: '上限', text: this.randomMax })
+            .width(80)
+            .height(36)
+            .fontSize(14)
+            .type(InputType.Number)
+            .textAlign(TextAlign.Center)
+            .onChange((value: string) => {
+              this.randomMax = value;
+              this.randomError = '';
+            })
+          
+          Button('生成随机数')
+            .width(90)
+            .height(36)
+            .fontSize(14)
+            .fontWeight(FontWeight.Medium)
+            .backgroundColor('#007DFF')
+            .fontColor(Color.White)
+            .borderRadius(6)
+            .onClick(() => {
+              this.generateRandomNumber();
+            })
+        }
+        .width('100%')
+        .height(36)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
+        
+        if (this.randomError) {
+          Row() {
+            Text('⚠ ' + this.randomError)
+              .fontSize(12)
+              .fontColor('#FF4444')
+          }
+          .width('100%')
+          .height(20)
+          .justifyContent(FlexAlign.Center)
+          .margin({ top: 4 })
+        }
+      }
+      .width(CommonConstants.FULL_PERCENT)
+      .margin({
+        left: $r('app.float.input_margin_right'),
+        right: $r('app.float.input_margin_right'),
+        top: '12vp'
+      })
+      .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+      .backgroundColor($r('app.color.history_item_bg'))
+      .borderRadius(8)
 
       Column() {
         TextInput({ text: this.resultFormat(this.inputValue) })
@@ -128,75 +226,53 @@ struct HomePage {
       })
 
       Column() {
-        Row() {
-          ForEach(keysModel.getPressKeys(), (columnItem: Array<PressKeysBean>, columnItemIndex?: number) => {
-            Column() {
-              ForEach(columnItem, (keyItem: PressKeysBean, keyItemIndex?: number) => {
+        Column({ space: 8 }) {
+          ForEach(keysModel.getPressKeys(), (rowItem: Array<PressKeysBean>, rowItemIndex?: number) => {
+            Row({ space: 8 }) {
+              ForEach(rowItem, (keyItem: PressKeysBean, keyItemIndex?: number) => {
                 Column() {
-                  Column() {
-                    if (keyItem.flag === 0) {
-                      Image(keyItem.source !== undefined ? keyItem.source : '')
-                        .width(keyItem.width)
-                        .height(keyItem.height)
-                    } else {
-                      Text(keyItem.value)
-                        .fontSize(
-                          (keyItem.value === CommonConstants.DOTS) ?
-                            $r('app.float.font_size_dot') : $r('app.float.font_size_text')
-                        )
-                        .width(keyItem.width)
-                        .height(keyItem.height)
-                    }
+                  if (keyItem.flag === 0) {
+                    Image(keyItem.source !== undefined ? keyItem.source : '')
+                      .width(keyItem.width)
+                      .height(keyItem.height)
+                  } else {
+                    Text(keyItem.value)
+                      .fontSize(
+                        (keyItem.value === CommonConstants.DOTS) ?
+                          $r('app.float.font_size_dot') : $r('app.float.font_size_text')
+                      )
+                      .fontColor($r('app.color.text_color'))
                   }
-                  .width($r('app.float.key_width'))
-                  .height(
-                    ((columnItemIndex === (keysModel.getPressKeys().length - 1)) &&
-                      (keyItemIndex === (columnItem.length - 1))) ?
-                      $r('app.float.equals_height') : $r('app.float.key_height')
-                  )
-                  .borderWidth(1)
-                  .borderColor($r('app.color.border_color'))
-                  .borderRadius($r('app.float.border_radius'))
-                  .backgroundColor(
-                    ((columnItemIndex === (keysModel.getPressKeys().length - 1)) &&
-                      (keyItemIndex === (columnItem.length - 1))) ?
-                      $r('app.color.equals_back_color') : $r('app.color.key_back_color')
-                  )
-                  .alignItems(HorizontalAlign.Center)
-                  .justifyContent(FlexAlign.Center)
-                  .onClick(() => {
-                    if (keyItem.flag === 0) {
-                      this.inputSymbol(keyItem.value);
-                    } else {
-                      this.inputNumber(keyItem.value);
-                    }
-                  })
                 }
-                .layoutWeight(
-                  ((columnItemIndex === (keysModel.getPressKeys().length - 1)) &&
-                    (keyItemIndex === (columnItem.length - 1))) ? CommonConstants.TWO : 1
-                )
-                .width(CommonConstants.FULL_PERCENT)
+                .width($r('app.float.key_width'))
+                .height($r('app.float.key_height'))
+                .borderWidth(1)
+                .borderColor($r('app.color.border_color'))
+                .borderRadius($r('app.float.border_radius'))
+                .backgroundColor($r('app.color.key_back_color'))
                 .justifyContent(FlexAlign.Center)
+                .alignItems(HorizontalAlign.Center)
+                .onClick(() => {
+                  if (keyItem.flag === 0) {
+                    this.inputSymbol(keyItem.value);
+                  } else {
+                    this.inputNumber(keyItem.value);
+                  }
+                })
               }, (keyItem: PressKeysBean) => JSON.stringify(keyItem))
             }
-            .layoutWeight(1)
-            .margin({
-              top: $r('app.float.margin_top'),
-              bottom: $r('app.float.margin_bottom')
-            })
+            .width('100%')
+            .justifyContent(FlexAlign.SpaceEvenly)
           }, (item: Array<Array<PressKeysBean>>) => JSON.stringify(item))
         }
-        .height(CommonConstants.FULL_PERCENT)
-        .alignItems(VerticalAlign.Top)
-        .margin({
-          left: $r('app.float.margin_left'),
-          right: $r('app.float.margin_right')
-        })
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.SpaceEvenly)
       }
       .layoutWeight(1)
       .width(CommonConstants.FULL_PERCENT)
       .backgroundColor($r('app.color.row_back_color'))
+      .padding({ top: 8, bottom: 8 })
     }
     .height(CommonConstants.FULL_PERCENT)
     .backgroundColor($r('app.color.column_back_color'))
@@ -206,6 +282,163 @@ struct HomePage {
       dragBar: true,
       showClose: true
     })
+    .bindSheet($$this.isFloatSheetShow, this.floatCalculatorSheetBuilder(), {
+      height: 420,
+      backgroundColor: $r('app.color.column_back_color'),
+      dragBar: true,
+      showClose: false
+    })
+  }
+
+  /**
+   * 悬浮计算器Sheet内容构建器
+   */
+  @Builder
+  floatCalculatorSheetBuilder() {
+    Column() {
+      // 标题栏
+      Row() {
+        Text('快捷计算器')
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_color'))
+        Blank()
+        Button({ type: ButtonType.Circle }) {
+          Text('×')
+            .fontSize(18)
+            .fontColor($r('app.color.text_color'))
+        }
+        .width(32)
+        .height(32)
+        .backgroundColor(Color.Transparent)
+        .onClick(() => {
+          this.isFloatSheetShow = false;
+        })
+      }
+      .width('100%')
+      .height(48)
+      .padding({ left: 16, right: 8 })
+
+      // 显示区域
+      Column() {
+        Text(this.inputValue || '0')
+          .fontSize(this.inputValue.length > 8 ? 24 : 32)
+          .fontColor($r('app.color.input_text_color'))
+          .fontWeight(FontWeight.Medium)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+          .textAlign(TextAlign.End)
+          .padding({ right: 16 })
+
+        if (this.calValue) {
+          Text(this.calValue)
+            .fontSize(20)
+            .fontColor('#007DFF')
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .width('100%')
+            .textAlign(TextAlign.End)
+            .padding({ right: 16, top: 4 })
+        }
+      }
+      .width('100%')
+      .height(80)
+      .justifyContent(FlexAlign.End)
+      .padding({ bottom: 8 })
+
+      // 按键区域
+      Column({ space: 8 }) {
+        Row({ space: 8 }) {
+          this.buildFloatKey('C', '#FF6B6B')
+          this.buildFloatKey('÷', '#E8F4FF')
+          this.buildFloatKey('×', '#E8F4FF')
+          this.buildFloatKey('⌫', '#E8F4FF')
+        }
+        Row({ space: 8 }) {
+          this.buildFloatKey('7')
+          this.buildFloatKey('8')
+          this.buildFloatKey('9')
+          this.buildFloatKey('-', '#E8F4FF')
+        }
+        Row({ space: 8 }) {
+          this.buildFloatKey('4')
+          this.buildFloatKey('5')
+          this.buildFloatKey('6')
+          this.buildFloatKey('+', '#E8F4FF')
+        }
+        Row({ space: 8 }) {
+          this.buildFloatKey('1')
+          this.buildFloatKey('2')
+          this.buildFloatKey('3')
+          this.buildFloatKey('=', '#007DFF', true)
+        }
+        Row({ space: 8 }) {
+          this.buildFloatKey('%')
+          this.buildFloatKey('0')
+          this.buildFloatKey('.')
+          Blank().layoutWeight(1)
+        }
+      }
+      .width('100%')
+      .padding({ left: 12, right: 12, bottom: 12 })
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  /**
+   * 构建悬浮计算器按键
+   */
+  @Builder
+  buildFloatKey(label: string, bgColor: string = '#FFFFFF', isEquals: boolean = false) {
+    Column() {
+      Text(label)
+        .fontSize(20)
+        .fontColor(isEquals ? '#FFFFFF' : $r('app.color.text_color'))
+        .fontWeight(isEquals ? FontWeight.Bold : FontWeight.Normal)
+    }
+    .width(72)
+    .height(48)
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor(bgColor)
+    .borderRadius(12)
+    .onClick(() => {
+      this.onFloatKeyPress(label);
+    })
+  }
+
+  /**
+   * 悬浮计算器按键处理
+   */
+  onFloatKeyPress(key: string): void {
+    switch (key) {
+      case 'C':
+        this.inputSymbol(Symbol.CLEAN);
+        break;
+      case '⌫':
+        this.inputSymbol(Symbol.DEL);
+        break;
+      case '=':
+        this.inputSymbol(Symbol.EQU);
+        break;
+      case '+':
+        this.inputSymbol(Symbol.ADD);
+        break;
+      case '-':
+        this.inputSymbol(Symbol.MIN);
+        break;
+      case '×':
+        this.inputSymbol(Symbol.MUL);
+        break;
+      case '÷':
+        this.inputSymbol(Symbol.DIV);
+        break;
+      default:
+        this.inputNumber(key);
+        break;
+    }
   }
 
   /**
@@ -311,6 +544,29 @@ struct HomePage {
     // 将历史结果作为新的输入
     this.expressions.push(result);
     this.inputValue = result;
+  }
+
+  /**
+   * 开启悬浮窗计算器
+   */
+  async openFloatWindow() {
+    promptAction.showToast({ message: '正在开启悬浮窗...', duration: 1000 });
+    
+    const context = AppStorage.get<common.UIAbilityContext>('uiAbilityContext');
+    if (!context) {
+      promptAction.showToast({ message: '获取上下文失败', duration: 2000 });
+      Logger.error('HomePage', 'UIAbilityContext is null');
+      return;
+    }
+    
+    const success = await FloatWindowUtil.showFloatWindow(context);
+    if (success) {
+      promptAction.showToast({ message: '悬浮窗已开启', duration: 1500 });
+      Logger.info('HomePage', 'Float window opened successfully');
+    } else {
+      promptAction.showToast({ message: '悬浮窗开启失败', duration: 2000 });
+      Logger.error('HomePage', 'Failed to open float window');
+    }
   }
 
 
@@ -577,5 +833,53 @@ struct HomePage {
       deepExpressions[index] = this.resultFormat(item);
     });
     this.inputValue = deepExpressions.join('');
+  }
+
+  /**
+   * 生成随机数并填充到计算器显示屏
+   */
+  generateRandomNumber(): void {
+    // 验证输入是否为空
+    if (!this.randomMin || !this.randomMax) {
+      this.randomError = '请输入完整的区间范围';
+      return;
+    }
+
+    // 解析上下限
+    const min = parseInt(this.randomMin);
+    const max = parseInt(this.randomMax);
+
+    // 验证是否为有效数字
+    if (isNaN(min) || isNaN(max)) {
+      this.randomError = '请输入有效的整数';
+      return;
+    }
+
+    // 验证区间是否合法
+    if (min > max) {
+      this.randomError = '下限不能大于上限';
+      return;
+    }
+
+    // 生成随机整数
+    const randomNum = Math.floor(Math.random() * (max - min + 1)) + min;
+    const randomStr = randomNum.toString();
+
+    // 清空当前输入和计算结果
+    this.expressions = [];
+    this.calValue = '';
+    
+    // 将随机数填充到显示屏
+    this.expressions.push(randomStr);
+    this.inputValue = randomStr;
+    
+    // 清空错误提示
+    this.randomError = '';
+    
+    // 显示提示
+    promptAction.showToast({
+      message: `已生成随机数: ${randomStr}`,
+      duration: 1500
+    });
   }
 }

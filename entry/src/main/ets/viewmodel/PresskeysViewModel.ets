@@ -19,35 +19,44 @@ export class PressKeysBeanViewModel {
 
   /**
    * Key array data.
+   * 按行排列，每行包含一组按键
    */
   getPressKeys(): Array<Array<PressKeysBean>> {
     return [
+      // 第1行：C, ÷, ×, ⌫
       [
         new PressKeysBean(0, '32vp', '32vp', 'clean', $r('app.media.ic_clean')),
+        new PressKeysBean(0, '32vp', '32vp', 'div', $r('app.media.ic_div_blue')),
+        new PressKeysBean(0, '32vp', '32vp', 'mul', $r('app.media.ic_mul_blue')),
+        new PressKeysBean(0, '30.48vp', '20vp', 'del', $r('app.media.ic_del'))
+      ],
+      // 第2行：7, 8, 9, -
+      [
         new PressKeysBean(1, '19vp', '43vp', '7'),
-        new PressKeysBean(1, '19vp', '43vp', '4'),
-        new PressKeysBean(1, '19vp', '43vp', '1'),
-        new PressKeysBean(1, '25vp', '43vp', '%')
-      ],
-      [
-        new PressKeysBean(0, '32vp', '32vp', 'div', $r('app.media.ic_div')),
         new PressKeysBean(1, '19vp', '43vp', '8'),
-        new PressKeysBean(1, '19vp', '43vp', '5'),
-        new PressKeysBean(1, '19vp', '43vp', '2'),
-        new PressKeysBean(1, '19vp', '43vp', '0')
-      ],
-      [
-        new PressKeysBean(0, '32vp', '32vp', 'mul', $r('app.media.ic_mul')),
         new PressKeysBean(1, '19vp', '43vp', '9'),
-        new PressKeysBean(1, '19vp', '43vp', '6'),
-        new PressKeysBean(1, '19vp', '43vp', '3'),
-        new PressKeysBean(1, '19vp', '43vp', '.')
+        new PressKeysBean(0, '24vp', '24vp', 'min', $r('app.media.ic_min_blue'))
       ],
+      // 第3行：4, 5, 6, +
       [
-        new PressKeysBean(0, '30.48vp', '20vp', 'del', $r('app.media.ic_del')),
-        new PressKeysBean(0, '24vp', '24vp', 'min', $r('app.media.ic_min')),
-        new PressKeysBean(0, '32vp', '32vp', 'add', $r('app.media.ic_add')),
-        new PressKeysBean(0, '32vp', '32vp', 'equ', $r('app.media.ic_equ'))
+        new PressKeysBean(1, '19vp', '43vp', '4'),
+        new PressKeysBean(1, '19vp', '43vp', '5'),
+        new PressKeysBean(1, '19vp', '43vp', '6'),
+        new PressKeysBean(0, '32vp', '32vp', 'add', $r('app.media.ic_add_blue'))
+      ],
+      // 第4行：1, 2, 3, =
+      [
+        new PressKeysBean(1, '19vp', '43vp', '1'),
+        new PressKeysBean(1, '19vp', '43vp', '2'),
+        new PressKeysBean(1, '19vp', '43vp', '3'),
+        new PressKeysBean(0, '32vp', '32vp', 'equ', $r('app.media.ic_equ_blue'))
+      ],
+      // 第5行：%, 0, ., =
+      [
+        new PressKeysBean(1, '25vp', '43vp', '%'),
+        new PressKeysBean(1, '19vp', '43vp', '0'),
+        new PressKeysBean(1, '19vp', '43vp', '.'),
+        new PressKeysBean(0, '32vp', '32vp', 'equ', $r('app.media.ic_equ_blue'))
       ]
     ];
   }

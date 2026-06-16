@@ -8,16 +8,23 @@ interface HomePage_Params {
     isHistoryDialogShow?: boolean;
     historyList?: Array<HistoryItem>;
     currentThemeMode?: number;
+    isFloatSheetShow?: boolean;
+    randomMin?: string;
+    randomMax?: string;
+    randomError?: string;
 }
 import Logger from "@bundle:com.example.simplecalculator/entry/ets/common/util/Logger";
 import CalculateUtil from "@bundle:com.example.simplecalculator/entry/ets/common/util/CalculateUtil";
 import CheckEmptyUtil from "@bundle:com.example.simplecalculator/entry/ets/common/util/CheckEmptyUtil";
 import HistoryUtil from "@bundle:com.example.simplecalculator/entry/ets/common/util/HistoryUtil";
 import ThemeUtil, { ThemeMode } from "@bundle:com.example.simplecalculator/entry/ets/common/util/ThemeUtil";
+import FloatWindowUtil from "@bundle:com.example.simplecalculator/entry/ets/common/util/FloatWindowUtil";
 import keysModel from "@bundle:com.example.simplecalculator/entry/ets/viewmodel/PresskeysViewModel";
 import type { PressKeysBean } from '../viewmodel/PressKeysItem';
 import type { HistoryItem } from '../viewmodel/HistoryItem';
 import { CommonConstants, Symbol } from "@bundle:com.example.simplecalculator/entry/ets/common/constants/CommonConstants";
+import type common from "@ohos:app.ability.common";
+import promptAction from "@ohos:promptAction";
 class HomePage extends ViewPU {
     constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
         super(parent, __localStorage, elmtId, extraInfo);
@@ -30,6 +37,10 @@ class HomePage extends ViewPU {
         this.__isHistoryDialogShow = new ObservedPropertySimplePU(false, this, "isHistoryDialogShow");
         this.__historyList = new ObservedPropertyObjectPU([], this, "historyList");
         this.__currentThemeMode = this.createStorageLink('currentThemeMode', ThemeMode.LIGHT, "currentThemeMode");
+        this.__isFloatSheetShow = new ObservedPropertySimplePU(false, this, "isFloatSheetShow");
+        this.__randomMin = new ObservedPropertySimplePU('', this, "randomMin");
+        this.__randomMax = new ObservedPropertySimplePU('', this, "randomMax");
+        this.__randomError = new ObservedPropertySimplePU('', this, "randomError");
         this.setInitiallyProvidedValue(params);
         this.finalizeConstruction();
     }
@@ -49,6 +60,18 @@ class HomePage extends ViewPU {
         if (params.historyList !== undefined) {
             this.historyList = params.historyList;
         }
+        if (params.isFloatSheetShow !== undefined) {
+            this.isFloatSheetShow = params.isFloatSheetShow;
+        }
+        if (params.randomMin !== undefined) {
+            this.randomMin = params.randomMin;
+        }
+        if (params.randomMax !== undefined) {
+            this.randomMax = params.randomMax;
+        }
+        if (params.randomError !== undefined) {
+            this.randomError = params.randomError;
+        }
     }
     updateStateVars(params: HomePage_Params) {
     }
@@ -58,6 +81,10 @@ class HomePage extends ViewPU {
         this.__isHistoryDialogShow.purgeDependencyOnElmtId(rmElmtId);
         this.__historyList.purgeDependencyOnElmtId(rmElmtId);
         this.__currentThemeMode.purgeDependencyOnElmtId(rmElmtId);
+        this.__isFloatSheetShow.purgeDependencyOnElmtId(rmElmtId);
+        this.__randomMin.purgeDependencyOnElmtId(rmElmtId);
+        this.__randomMax.purgeDependencyOnElmtId(rmElmtId);
+        this.__randomError.purgeDependencyOnElmtId(rmElmtId);
     }
     aboutToBeDeleted() {
         this.__inputValue.aboutToBeDeleted();
@@ -65,6 +92,10 @@ class HomePage extends ViewPU {
         this.__isHistoryDialogShow.aboutToBeDeleted();
         this.__historyList.aboutToBeDeleted();
         this.__currentThemeMode.aboutToBeDeleted();
+        this.__isFloatSheetShow.aboutToBeDeleted();
+        this.__randomMin.aboutToBeDeleted();
+        this.__randomMax.aboutToBeDeleted();
+        this.__randomError.aboutToBeDeleted();
         SubscriberManager.Get().delete(this.id__());
         this.aboutToBeDeletedInternal();
     }
@@ -107,6 +138,38 @@ class HomePage extends ViewPU {
     set currentThemeMode(newValue: number) {
         this.__currentThemeMode.set(newValue);
     }
+    /** 悬浮计算器Sheet显示状态 */
+    private __isFloatSheetShow: ObservedPropertySimplePU<boolean>;
+    get isFloatSheetShow() {
+        return this.__isFloatSheetShow.get();
+    }
+    set isFloatSheetShow(newValue: boolean) {
+        this.__isFloatSheetShow.set(newValue);
+    }
+    /** 随机数下限 */
+    private __randomMin: ObservedPropertySimplePU<string>;
+    get randomMin() {
+        return this.__randomMin.get();
+    }
+    set randomMin(newValue: string) {
+        this.__randomMin.set(newValue);
+    }
+    /** 随机数上限 */
+    private __randomMax: ObservedPropertySimplePU<string>;
+    get randomMax() {
+        return this.__randomMax.get();
+    }
+    set randomMax(newValue: string) {
+        this.__randomMax.set(newValue);
+    }
+    /** 随机数错误提示 */
+    private __randomError: ObservedPropertySimplePU<string>;
+    get randomError() {
+        return this.__randomError.get();
+    }
+    set randomError(newValue: string) {
+        this.__randomError.set(newValue);
+    }
     /** 主题管理键名 */
     private static readonly THEME_KEY: string = 'currentThemeMode';
     /** 页面即将显示时初始化主题 */
@@ -127,13 +190,21 @@ class HomePage extends ViewPU {
                 dragBar: true,
                 showClose: true
             });
+            Column.bindSheet({ value: this.isFloatSheetShow, changeEvent: newValue => { this.isFloatSheetShow = newValue; } }, { builder: () => {
+                    this.floatCalculatorSheetBuilder.call(this);
+                } }, {
+                height: 420,
+                backgroundColor: { "id": 16777223, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" },
+                dragBar: true,
+                showClose: false
+            });
         }, Column);
         this.observeComponentCreation2((elmtId, isInitialRender) => {
-            // 顶部按钮区域：主题切换 + 历史记录
+            // 顶部按钮区域：主题切换 + 悬浮窗 + 历史记录
             Row.create();
-            // 顶部按钮区域：主题切换 + 历史记录
+            // 顶部按钮区域：主题切换 + 悬浮窗 + 历史记录
             Row.width(CommonConstants.FULL_PERCENT);
-            // 顶部按钮区域：主题切换 + 历史记录
+            // 顶部按钮区域：主题切换 + 悬浮窗 + 历史记录
             Row.margin({
                 left: { "id": 16777236, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" },
                 right: { "id": 16777236, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" },
@@ -191,6 +262,30 @@ class HomePage extends ViewPU {
         }, Blank);
         Blank.pop();
         this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 悬浮窗按钮（右上角）
+            Button.createWithChild({ type: ButtonType.Circle });
+            // 悬浮窗按钮（右上角）
+            Button.width({ "id": 16777266, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
+            // 悬浮窗按钮（右上角）
+            Button.height({ "id": 16777266, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
+            // 悬浮窗按钮（右上角）
+            Button.backgroundColor({ "id": 16777261, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
+            // 悬浮窗按钮（右上角）
+            Button.margin({ right: 8 });
+            // 悬浮窗按钮（右上角）
+            Button.onClick(() => {
+                // 显示悬浮计算器Sheet
+                this.isFloatSheetShow = true;
+            });
+        }, Button);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('📱');
+            Text.fontSize(16);
+        }, Text);
+        Text.pop();
+        // 悬浮窗按钮（右上角）
+        Button.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
             // 历史记录按钮（右上角）
             Button.createWithChild({ type: ButtonType.Circle });
             // 历史记录按钮（右上角）
@@ -214,8 +309,113 @@ class HomePage extends ViewPU {
         Text.pop();
         // 历史记录按钮（右上角）
         Button.pop();
-        // 顶部按钮区域：主题切换 + 历史记录
+        // 顶部按钮区域：主题切换 + 悬浮窗 + 历史记录
         Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 随机数模块
+            Column.create();
+            // 随机数模块
+            Column.width(CommonConstants.FULL_PERCENT);
+            // 随机数模块
+            Column.margin({
+                left: { "id": 16777236, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" },
+                right: { "id": 16777236, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" },
+                top: '12vp'
+            });
+            // 随机数模块
+            Column.padding({ left: 12, right: 12, top: 10, bottom: 10 });
+            // 随机数模块
+            Column.backgroundColor({ "id": 16777264, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
+            // 随机数模块
+            Column.borderRadius(8);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 8 });
+            Row.width('100%');
+            Row.height(36);
+            Row.justifyContent(FlexAlign.Center);
+            Row.alignItems(VerticalAlign.Center);
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('随机数区间：');
+            Text.fontSize(14);
+            Text.fontColor({ "id": 16777228, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            TextInput.create({ placeholder: '下限', text: this.randomMin });
+            TextInput.width(80);
+            TextInput.height(36);
+            TextInput.fontSize(14);
+            TextInput.type(InputType.Number);
+            TextInput.textAlign(TextAlign.Center);
+            TextInput.onChange((value: string) => {
+                this.randomMin = value;
+                this.randomError = '';
+            });
+        }, TextInput);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('~');
+            Text.fontSize(16);
+            Text.fontColor({ "id": 16777228, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
+            Text.fontWeight(FontWeight.Bold);
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            TextInput.create({ placeholder: '上限', text: this.randomMax });
+            TextInput.width(80);
+            TextInput.height(36);
+            TextInput.fontSize(14);
+            TextInput.type(InputType.Number);
+            TextInput.textAlign(TextAlign.Center);
+            TextInput.onChange((value: string) => {
+                this.randomMax = value;
+                this.randomError = '';
+            });
+        }, TextInput);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithLabel('生成随机数');
+            Button.width(90);
+            Button.height(36);
+            Button.fontSize(14);
+            Button.fontWeight(FontWeight.Medium);
+            Button.backgroundColor('#007DFF');
+            Button.fontColor(Color.White);
+            Button.borderRadius(6);
+            Button.onClick(() => {
+                this.generateRandomNumber();
+            });
+        }, Button);
+        Button.pop();
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.randomError) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Row.create();
+                        Row.width('100%');
+                        Row.height(20);
+                        Row.justifyContent(FlexAlign.Center);
+                        Row.margin({ top: 4 });
+                    }, Row);
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create('⚠ ' + this.randomError);
+                        Text.fontSize(12);
+                        Text.fontColor('#FF4444');
+                    }, Text);
+                    Text.pop();
+                    Row.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        // 随机数模块
+        Column.pop();
         this.observeComponentCreation2((elmtId, isInitialRender) => {
             Column.create();
             Column.width(CommonConstants.FULL_PERCENT);
@@ -258,51 +458,37 @@ class HomePage extends ViewPU {
             Column.layoutWeight(1);
             Column.width(CommonConstants.FULL_PERCENT);
             Column.backgroundColor({ "id": 16777226, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
+            Column.padding({ top: 8, bottom: 8 });
         }, Column);
         this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Row.create();
-            Row.height(CommonConstants.FULL_PERCENT);
-            Row.alignItems(VerticalAlign.Top);
-            Row.margin({
-                left: { "id": 16777241, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" },
-                right: { "id": 16777242, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" }
-            });
-        }, Row);
+            Column.create({ space: 8 });
+            Column.width('100%');
+            Column.height('100%');
+            Column.justifyContent(FlexAlign.SpaceEvenly);
+        }, Column);
         this.observeComponentCreation2((elmtId, isInitialRender) => {
             ForEach.create();
-            const forEachItemGenFunction = (_item, columnItemIndex?: number) => {
-                const columnItem = _item;
+            const forEachItemGenFunction = (_item, rowItemIndex?: number) => {
+                const rowItem = _item;
                 this.observeComponentCreation2((elmtId, isInitialRender) => {
-                    Column.create();
-                    Column.layoutWeight(1);
-                    Column.margin({
-                        top: { "id": 16777243, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" },
-                        bottom: { "id": 16777240, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" }
-                    });
-                }, Column);
+                    Row.create({ space: 8 });
+                    Row.width('100%');
+                    Row.justifyContent(FlexAlign.SpaceEvenly);
+                }, Row);
                 this.observeComponentCreation2((elmtId, isInitialRender) => {
                     ForEach.create();
                     const forEachItemGenFunction = (_item, keyItemIndex?: number) => {
                         const keyItem = _item;
                         this.observeComponentCreation2((elmtId, isInitialRender) => {
                             Column.create();
-                            Column.layoutWeight(((columnItemIndex === (keysModel.getPressKeys().length - 1)) &&
-                                (keyItemIndex === (columnItem.length - 1))) ? CommonConstants.TWO : 1);
-                            Column.width(CommonConstants.FULL_PERCENT);
-                            Column.justifyContent(FlexAlign.Center);
-                        }, Column);
-                        this.observeComponentCreation2((elmtId, isInitialRender) => {
-                            Column.create();
                             Column.width({ "id": 16777239, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
-                            Column.height(((columnItemIndex === (keysModel.getPressKeys().length - 1)) &&
-                                (keyItemIndex === (columnItem.length - 1))) ? { "id": 16777230, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" } : { "id": 16777238, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
+                            Column.height({ "id": 16777238, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
                             Column.borderWidth(1);
                             Column.borderColor({ "id": 16777222, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
                             Column.borderRadius({ "id": 16777229, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
-                            Column.backgroundColor(((columnItemIndex === (keysModel.getPressKeys().length - 1)) &&
-                                (keyItemIndex === (columnItem.length - 1))) ? { "id": 16777224, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" } : { "id": 16777276, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
-                            Column.alignItems(HorizontalAlign.Center);
+                            Column.backgroundColor({ "id": 16777276, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
                             Column.justifyContent(FlexAlign.Center);
+                            Column.alignItems(HorizontalAlign.Center);
                             Column.onClick(() => {
                                 if (keyItem.flag === 0) {
                                     this.inputSymbol(keyItem.value);
@@ -328,8 +514,7 @@ class HomePage extends ViewPU {
                                     this.observeComponentCreation2((elmtId, isInitialRender) => {
                                         Text.create(keyItem.value);
                                         Text.fontSize((keyItem.value === CommonConstants.DOTS) ? { "id": 16777232, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" } : { "id": 16777234, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
-                                        Text.width(keyItem.width);
-                                        Text.height(keyItem.height);
+                                        Text.fontColor({ "id": 16777228, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
                                     }, Text);
                                     Text.pop();
                                 });
@@ -337,19 +522,228 @@ class HomePage extends ViewPU {
                         }, If);
                         If.pop();
                         Column.pop();
-                        Column.pop();
                     };
-                    this.forEachUpdateFunction(elmtId, columnItem, forEachItemGenFunction, (keyItem: PressKeysBean) => JSON.stringify(keyItem), true, false);
+                    this.forEachUpdateFunction(elmtId, rowItem, forEachItemGenFunction, (keyItem: PressKeysBean) => JSON.stringify(keyItem), true, false);
                 }, ForEach);
                 ForEach.pop();
-                Column.pop();
+                Row.pop();
             };
             this.forEachUpdateFunction(elmtId, keysModel.getPressKeys(), forEachItemGenFunction, (item: Array<Array<PressKeysBean>>) => JSON.stringify(item), true, false);
         }, ForEach);
         ForEach.pop();
+        Column.pop();
+        Column.pop();
+        Column.pop();
+    }
+    /**
+     * 悬浮计算器Sheet内容构建器
+     */
+    floatCalculatorSheetBuilder(parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.width('100%');
+            Column.height('100%');
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 标题栏
+            Row.create();
+            // 标题栏
+            Row.width('100%');
+            // 标题栏
+            Row.height(48);
+            // 标题栏
+            Row.padding({ left: 16, right: 8 });
+        }, Row);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('快捷计算器');
+            Text.fontSize(18);
+            Text.fontWeight(FontWeight.Bold);
+            Text.fontColor({ "id": 16777228, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Blank.create();
+        }, Blank);
+        Blank.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Button.createWithChild({ type: ButtonType.Circle });
+            Button.width(32);
+            Button.height(32);
+            Button.backgroundColor(Color.Transparent);
+            Button.onClick(() => {
+                this.isFloatSheetShow = false;
+            });
+        }, Button);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create('×');
+            Text.fontSize(18);
+            Text.fontColor({ "id": 16777228, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
+        }, Text);
+        Text.pop();
+        Button.pop();
+        // 标题栏
         Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 显示区域
+            Column.create();
+            // 显示区域
+            Column.width('100%');
+            // 显示区域
+            Column.height(80);
+            // 显示区域
+            Column.justifyContent(FlexAlign.End);
+            // 显示区域
+            Column.padding({ bottom: 8 });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(this.inputValue || '0');
+            Text.fontSize(this.inputValue.length > 8 ? 24 : 32);
+            Text.fontColor({ "id": 16777275, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
+            Text.fontWeight(FontWeight.Medium);
+            Text.maxLines(1);
+            Text.textOverflow({ overflow: TextOverflow.Ellipsis });
+            Text.width('100%');
+            Text.textAlign(TextAlign.End);
+            Text.padding({ right: 16 });
+        }, Text);
+        Text.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            If.create();
+            if (this.calValue) {
+                this.ifElseBranchUpdateFunction(0, () => {
+                    this.observeComponentCreation2((elmtId, isInitialRender) => {
+                        Text.create(this.calValue);
+                        Text.fontSize(20);
+                        Text.fontColor('#007DFF');
+                        Text.maxLines(1);
+                        Text.textOverflow({ overflow: TextOverflow.Ellipsis });
+                        Text.width('100%');
+                        Text.textAlign(TextAlign.End);
+                        Text.padding({ right: 16, top: 4 });
+                    }, Text);
+                    Text.pop();
+                });
+            }
+            else {
+                this.ifElseBranchUpdateFunction(1, () => {
+                });
+            }
+        }, If);
+        If.pop();
+        // 显示区域
+        Column.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            // 按键区域
+            Column.create({ space: 8 });
+            // 按键区域
+            Column.width('100%');
+            // 按键区域
+            Column.padding({ left: 12, right: 12, bottom: 12 });
+            // 按键区域
+            Column.layoutWeight(1);
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 8 });
+        }, Row);
+        this.buildFloatKey.bind(this)('C', '#FF6B6B');
+        this.buildFloatKey.bind(this)('÷', '#E8F4FF');
+        this.buildFloatKey.bind(this)('×', '#E8F4FF');
+        this.buildFloatKey.bind(this)('⌫', '#E8F4FF');
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 8 });
+        }, Row);
+        this.buildFloatKey.bind(this)('7');
+        this.buildFloatKey.bind(this)('8');
+        this.buildFloatKey.bind(this)('9');
+        this.buildFloatKey.bind(this)('-', '#E8F4FF');
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 8 });
+        }, Row);
+        this.buildFloatKey.bind(this)('4');
+        this.buildFloatKey.bind(this)('5');
+        this.buildFloatKey.bind(this)('6');
+        this.buildFloatKey.bind(this)('+', '#E8F4FF');
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 8 });
+        }, Row);
+        this.buildFloatKey.bind(this)('1');
+        this.buildFloatKey.bind(this)('2');
+        this.buildFloatKey.bind(this)('3');
+        this.buildFloatKey.bind(this)('=', '#007DFF', true);
+        Row.pop();
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Row.create({ space: 8 });
+        }, Row);
+        this.buildFloatKey.bind(this)('%');
+        this.buildFloatKey.bind(this)('0');
+        this.buildFloatKey.bind(this)('.');
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Blank.create();
+            Blank.layoutWeight(1);
+        }, Blank);
+        Blank.pop();
+        Row.pop();
+        // 按键区域
         Column.pop();
         Column.pop();
+    }
+    /**
+     * 构建悬浮计算器按键
+     */
+    buildFloatKey(label: string, bgColor: string = '#FFFFFF', isEquals: boolean = false, parent = null) {
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Column.create();
+            Column.width(72);
+            Column.height(48);
+            Column.justifyContent(FlexAlign.Center);
+            Column.backgroundColor(bgColor);
+            Column.borderRadius(12);
+            Column.onClick(() => {
+                this.onFloatKeyPress(label);
+            });
+        }, Column);
+        this.observeComponentCreation2((elmtId, isInitialRender) => {
+            Text.create(label);
+            Text.fontSize(20);
+            Text.fontColor(isEquals ? '#FFFFFF' : { "id": 16777228, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
+            Text.fontWeight(isEquals ? FontWeight.Bold : FontWeight.Normal);
+        }, Text);
+        Text.pop();
+        Column.pop();
+    }
+    /**
+     * 悬浮计算器按键处理
+     */
+    onFloatKeyPress(key: string): void {
+        switch (key) {
+            case 'C':
+                this.inputSymbol(Symbol.CLEAN);
+                break;
+            case '⌫':
+                this.inputSymbol(Symbol.DEL);
+                break;
+            case '=':
+                this.inputSymbol(Symbol.EQU);
+                break;
+            case '+':
+                this.inputSymbol(Symbol.ADD);
+                break;
+            case '-':
+                this.inputSymbol(Symbol.MIN);
+                break;
+            case '×':
+                this.inputSymbol(Symbol.MUL);
+                break;
+            case '÷':
+                this.inputSymbol(Symbol.DIV);
+                break;
+            default:
+                this.inputNumber(key);
+                break;
+        }
     }
     /**
      * 历史记录弹窗内容构建器
@@ -540,6 +934,27 @@ class HomePage extends ViewPU {
         // 将历史结果作为新的输入
         this.expressions.push(result);
         this.inputValue = result;
+    }
+    /**
+     * 开启悬浮窗计算器
+     */
+    async openFloatWindow() {
+        promptAction.showToast({ message: '正在开启悬浮窗...', duration: 1000 });
+        const context = AppStorage.get<common.UIAbilityContext>('uiAbilityContext');
+        if (!context) {
+            promptAction.showToast({ message: '获取上下文失败', duration: 2000 });
+            Logger.error('HomePage', 'UIAbilityContext is null');
+            return;
+        }
+        const success = await FloatWindowUtil.showFloatWindow(context);
+        if (success) {
+            promptAction.showToast({ message: '悬浮窗已开启', duration: 1500 });
+            Logger.info('HomePage', 'Float window opened successfully');
+        }
+        else {
+            promptAction.showToast({ message: '悬浮窗开启失败', duration: 2000 });
+            Logger.error('HomePage', 'Failed to open float window');
+        }
     }
     /**
      * Input Symbols.
@@ -797,6 +1212,45 @@ class HomePage extends ViewPU {
             deepExpressions[index] = this.resultFormat(item);
         });
         this.inputValue = deepExpressions.join('');
+    }
+    /**
+     * 生成随机数并填充到计算器显示屏
+     */
+    generateRandomNumber(): void {
+        // 验证输入是否为空
+        if (!this.randomMin || !this.randomMax) {
+            this.randomError = '请输入完整的区间范围';
+            return;
+        }
+        // 解析上下限
+        const min = parseInt(this.randomMin);
+        const max = parseInt(this.randomMax);
+        // 验证是否为有效数字
+        if (isNaN(min) || isNaN(max)) {
+            this.randomError = '请输入有效的整数';
+            return;
+        }
+        // 验证区间是否合法
+        if (min > max) {
+            this.randomError = '下限不能大于上限';
+            return;
+        }
+        // 生成随机整数
+        const randomNum = Math.floor(Math.random() * (max - min + 1)) + min;
+        const randomStr = randomNum.toString();
+        // 清空当前输入和计算结果
+        this.expressions = [];
+        this.calValue = '';
+        // 将随机数填充到显示屏
+        this.expressions.push(randomStr);
+        this.inputValue = randomStr;
+        // 清空错误提示
+        this.randomError = '';
+        // 显示提示
+        promptAction.showToast({
+            message: `已生成随机数: ${randomStr}`,
+            duration: 1500
+        });
     }
     rerender() {
         this.updateDirtyElements();
