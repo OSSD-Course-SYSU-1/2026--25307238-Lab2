@@ -77,6 +77,26 @@ class HistoryUtil {
   getHistoryCount(): number {
     return this.historyList.length;
   }
+
+  /**
+   * 恢复历史记录（用于迁移恢复）
+   * @param historyList 要恢复的历史记录列表
+   */
+  restoreHistory(historyList: Array<HistoryItem>): void {
+    if (!historyList || historyList.length === 0) {
+      return;
+    }
+    // 清空当前历史记录
+    this.historyList = [];
+    // 恢复历史记录
+    for (const item of historyList) {
+      this.historyList.push(item);
+    }
+    // 如果超过最大条数，截断
+    if (this.historyList.length > this.MAX_HISTORY_SIZE) {
+      this.historyList = this.historyList.slice(0, this.MAX_HISTORY_SIZE);
+    }
+  }
 }
 
 export default new HistoryUtil();

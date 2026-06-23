@@ -18,7 +18,7 @@ import CalculateUtil from '../common/util/CalculateUtil';
 import CheckEmptyUtil from '../common/util/CheckEmptyUtil';
 import HistoryUtil from '../common/util/HistoryUtil';
 import ThemeUtil, { ThemeMode } from '../common/util/ThemeUtil';
-import FloatWindowUtil from '../common/util/FloatWindowUtil';
+import ResponsiveUtil, { Breakpoint, Orientation, LayoutMode, ResponsiveConfig, ResponsiveSize } from '../common/util/ResponsiveUtil';
 import keysModel from '../viewmodel/PresskeysViewModel';
 import { PressKeysBean } from '../viewmodel/PressKeysItem';
 import { HistoryItem } from '../viewmodel/HistoryItem';
@@ -38,407 +38,596 @@ struct HomePage {
   @State historyList: Array<HistoryItem> = [];
   /** 当前主题模式（监听 AppStorage 变化） */
   @StorageLink('currentThemeMode') currentThemeMode: number = ThemeMode.LIGHT;
-  /** 悬浮计算器Sheet显示状态 */
-  @State isFloatSheetShow: boolean = false;
   /** 随机数下限 */
   @State randomMin: string = '';
   /** 随机数上限 */
   @State randomMax: string = '';
   /** 随机数错误提示 */
   @State randomError: string = '';
+  
+  /** 响应式配置（监听 AppStorage 变化） */
+  @StorageLink('responsiveConfig') @Watch('onResponsiveConfigChange') responsiveConfig: ResponsiveConfig = {
+    minWidth: 280,
+    breakpoint: Breakpoint.SM,
+    orientation: Orientation.PORTRAIT,
+    layoutMode: LayoutMode.COMPACT,
+    screenWidth: 360,
+    screenHeight: 640
+  };
+  /** 响应式尺寸（根据配置计算） */
+  @State responsiveSize: ResponsiveSize | null = null;
 
   /** 主题管理键名 */
   private static readonly THEME_KEY: string = 'currentThemeMode';
 
-  /** 页面即将显示时初始化主题 */
+  /** 页面即将显示时初始化主题和响应式配置 */
   aboutToAppear(): void {
     // 初始化主题管理
     ThemeUtil.init();
+    
+    // 初始化响应式尺寸
+    this.responsiveSize = ResponsiveUtil.getResponsiveSize();
+    
+    // ========== 迁移恢复处理 ==========
+    // 检查是否为迁移恢复状态
+    const isRestored = AppStorage.get<boolean>('calculator_isRestored');
+    if (isRestored) {
+      // 从AppStorage恢复计算器状态
+      const restoredInputValue = AppStorage.get<string>('calculator_inputValue');
+      const restoredCalValue = AppStorage.get<string>('calculator_calValue');
+      const restoredExpressions = AppStorage.get<Array<string>>('calculator_expressions');
+      
+      if (restoredInputValue !== undefined) {
+        this.inputValue = restoredInputValue;
+      }
+      if (restoredCalValue !== undefined) {
+        this.calValue = restoredCalValue;
+      }
+      if (restoredExpressions !== undefined && restoredExpressions.length > 0) {
+        this.expressions = [...restoredExpressions];
+      }
+      
+      // 清除迁移恢复标记
+      AppStorage.setOrCreate('calculator_isRestored', false);
+      
+      // 刷新历史记录列表
+      this.historyList = HistoryUtil.getHistoryList();
+      
+      Logger.info('HomePage', 'Calculator state restored from continuation');
+    }
+  }
+  
+  /** 监听响应式配置变化，实时更新尺寸 */
+  onResponsiveConfigChange(): void {
+    // 当屏幕尺寸变化时，更新响应式尺寸
+    this.responsiveSize = ResponsiveUtil.getResponsiveSize();
+    Logger.info('HomePage', `Responsive config changed: ${this.responsiveConfig.breakpoint}, ${this.responsiveConfig.orientation}`);
   }
 
   build() {
     Column() {
-      // 顶部按钮区域：主题切换 + 悬浮窗 + 历史记录
-      Row() {
-        // 主题切换按钮（左上角）
-        Button({ type: ButtonType.Circle }) {
-          // 根据当前主题显示不同图标
-          if (this.currentThemeMode === ThemeMode.LIGHT) {
-            // 浅色模式显示月亮图标（点击切换到深色）
-            Text('🌙')
-              .fontSize(20)
+      // 极窄屏幕友好提示
+      if (this.responsiveConfig.screenWidth < 280) {
+        this.buildNarrowScreenTip();
+      } else {
+        // 根据布局模式选择不同的布局
+        if (this.responsiveConfig.layoutMode === LayoutMode.COMPACT) {
+          // 小屏：单列紧凑布局
+          this.buildCompactLayout();
+        } else if (this.responsiveConfig.layoutMode === LayoutMode.STANDARD) {
+          // 中屏：标准布局（横屏双列，竖屏单列）
+          if (this.responsiveConfig.orientation === Orientation.LANDSCAPE) {
+            this.buildExpandedLayout();
           } else {
-            // 深色模式显示太阳图标（点击切换到浅色）
-            Text('☀️')
-              .fontSize(20)
+            this.buildCompactLayout();
           }
-        }
-        .width($r('app.float.history_button_size'))
-        .height($r('app.float.history_button_size'))
-        .backgroundColor($r('app.color.theme_button_color'))
-        .onClick(() => {
-          // 切换主题
-          ThemeUtil.toggleTheme();
-        })
-
-        Blank()
-
-        // 悬浮窗按钮（右上角）
-        Button({ type: ButtonType.Circle }) {
-          Text('📱')
-            .fontSize(16)
-        }
-        .width($r('app.float.history_button_size'))
-        .height($r('app.float.history_button_size'))
-        .backgroundColor($r('app.color.history_button_color'))
-        .margin({ right: 8 })
-        .onClick(() => {
-          // 显示悬浮计算器Sheet
-          this.isFloatSheetShow = true;
-        })
-
-        // 历史记录按钮（右上角）
-        Button({ type: ButtonType.Circle }) {
-          Text($r('app.string.history_button'))
-            .fontSize(12)
-            .fontColor($r('app.color.text_color'))
-        }
-        .width($r('app.float.history_button_size'))
-        .height($r('app.float.history_button_size'))
-        .backgroundColor($r('app.color.history_button_color'))
-        .onClick(() => {
-          // 点击历史记录按钮，刷新列表并显示弹窗
-          this.historyList = HistoryUtil.getHistoryList();
-          this.isHistoryDialogShow = true;
-        })
-      }
-      .width(CommonConstants.FULL_PERCENT)
-      .margin({
-        left: $r('app.float.input_margin_right'),
-        right: $r('app.float.input_margin_right'),
-        top: '20vp'
-      })
-
-      // 随机数模块
-      Column() {
-        Row({ space: 8 }) {
-          Text('随机数区间：')
-            .fontSize(14)
-            .fontColor($r('app.color.text_color'))
-          
-          TextInput({ placeholder: '下限', text: this.randomMin })
-            .width(80)
-            .height(36)
-            .fontSize(14)
-            .type(InputType.Number)
-            .textAlign(TextAlign.Center)
-            .onChange((value: string) => {
-              this.randomMin = value;
-              this.randomError = '';
-            })
-          
-          Text('~')
-            .fontSize(16)
-            .fontColor($r('app.color.text_color'))
-            .fontWeight(FontWeight.Bold)
-          
-          TextInput({ placeholder: '上限', text: this.randomMax })
-            .width(80)
-            .height(36)
-            .fontSize(14)
-            .type(InputType.Number)
-            .textAlign(TextAlign.Center)
-            .onChange((value: string) => {
-              this.randomMax = value;
-              this.randomError = '';
-            })
-          
-          Button('生成随机数')
-            .width(90)
-            .height(36)
-            .fontSize(14)
-            .fontWeight(FontWeight.Medium)
-            .backgroundColor('#007DFF')
-            .fontColor(Color.White)
-            .borderRadius(6)
-            .onClick(() => {
-              this.generateRandomNumber();
-            })
-        }
-        .width('100%')
-        .height(36)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(VerticalAlign.Center)
-        
-        if (this.randomError) {
-          Row() {
-            Text('⚠ ' + this.randomError)
-              .fontSize(12)
-              .fontColor('#FF4444')
-          }
-          .width('100%')
-          .height(20)
-          .justifyContent(FlexAlign.Center)
-          .margin({ top: 4 })
+        } else {
+          // 大屏/超大屏：扩展布局（双列）
+          this.buildExpandedLayout();
         }
       }
-      .width(CommonConstants.FULL_PERCENT)
-      .margin({
-        left: $r('app.float.input_margin_right'),
-        right: $r('app.float.input_margin_right'),
-        top: '12vp'
-      })
-      .padding({ left: 12, right: 12, top: 10, bottom: 10 })
-      .backgroundColor($r('app.color.history_item_bg'))
-      .borderRadius(8)
-
-      Column() {
-        TextInput({ text: this.resultFormat(this.inputValue) })
-          .height(CommonConstants.FULL_PERCENT)
-          .fontSize(
-            (this.inputValue.length > CommonConstants.INPUT_LENGTH_MAX) ?
-              $r('app.float.font_size_text') : $r('app.float.font_size_input')
-          )
-          .enabled(false)
-          .fontColor($r('app.color.input_text_color'))
-          .textAlign(TextAlign.End)
-          .backgroundColor($r('app.color.input_back_color'))
-      }
-      .width(CommonConstants.FULL_PERCENT)
-      .height($r('app.float.input_height'))
-      .alignItems(HorizontalAlign.End)
-      .margin({
-        right: $r('app.float.input_margin_right'),
-        top: $r('app.float.input_margin_top')
-      })
-
-      Column() {
-        Text(this.resultFormat(this.calValue))
-          .fontSize($r('app.float.font_size_text'))
-          .fontColor($r('app.color.text_color'))
-      }
-      .width(CommonConstants.FULL_PERCENT)
-      .height($r('app.float.text_height'))
-      .alignItems(HorizontalAlign.End)
-      .margin({
-        right: $r('app.float.text_margin_right'),
-        bottom: $r('app.float.text_margin_bottom')
-      })
-
-      Column() {
-        Column({ space: 8 }) {
-          ForEach(keysModel.getPressKeys(), (rowItem: Array<PressKeysBean>, rowItemIndex?: number) => {
-            Row({ space: 8 }) {
-              ForEach(rowItem, (keyItem: PressKeysBean, keyItemIndex?: number) => {
-                Column() {
-                  if (keyItem.flag === 0) {
-                    Image(keyItem.source !== undefined ? keyItem.source : '')
-                      .width(keyItem.width)
-                      .height(keyItem.height)
-                  } else {
-                    Text(keyItem.value)
-                      .fontSize(
-                        (keyItem.value === CommonConstants.DOTS) ?
-                          $r('app.float.font_size_dot') : $r('app.float.font_size_text')
-                      )
-                      .fontColor($r('app.color.text_color'))
-                  }
-                }
-                .width($r('app.float.key_width'))
-                .height($r('app.float.key_height'))
-                .borderWidth(1)
-                .borderColor($r('app.color.border_color'))
-                .borderRadius($r('app.float.border_radius'))
-                .backgroundColor($r('app.color.key_back_color'))
-                .justifyContent(FlexAlign.Center)
-                .alignItems(HorizontalAlign.Center)
-                .onClick(() => {
-                  if (keyItem.flag === 0) {
-                    this.inputSymbol(keyItem.value);
-                  } else {
-                    this.inputNumber(keyItem.value);
-                  }
-                })
-              }, (keyItem: PressKeysBean) => JSON.stringify(keyItem))
-            }
-            .width('100%')
-            .justifyContent(FlexAlign.SpaceEvenly)
-          }, (item: Array<Array<PressKeysBean>>) => JSON.stringify(item))
-        }
-        .width('100%')
-        .height('100%')
-        .justifyContent(FlexAlign.SpaceEvenly)
-      }
-      .layoutWeight(1)
-      .width(CommonConstants.FULL_PERCENT)
-      .backgroundColor($r('app.color.row_back_color'))
-      .padding({ top: 8, bottom: 8 })
     }
     .height(CommonConstants.FULL_PERCENT)
     .backgroundColor($r('app.color.column_back_color'))
     .bindSheet($$this.isHistoryDialogShow, this.historySheetBuilder(), {
-      height: $r('app.float.history_dialog_height'),
+      height: this.responsiveSize ? `${this.responsiveSize.inputHeight * 5}vp` : '450vp',
       backgroundColor: $r('app.color.history_dialog_bg'),
       dragBar: true,
       showClose: true
     })
-    .bindSheet($$this.isFloatSheetShow, this.floatCalculatorSheetBuilder(), {
-      height: 420,
-      backgroundColor: $r('app.color.column_back_color'),
-      dragBar: true,
-      showClose: false
-    })
   }
 
   /**
-   * 悬浮计算器Sheet内容构建器
+   * 极窄屏幕友好提示
    */
   @Builder
-  floatCalculatorSheetBuilder() {
+  buildNarrowScreenTip() {
     Column() {
-      // 标题栏
-      Row() {
-        Text('快捷计算器')
-          .fontSize(18)
+      Column() {
+        Text('⚠️')
+          .fontSize(48)
+          .margin({ bottom: 16 })
+        
+        Text('屏幕宽度不足')
+          .fontSize(20)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_color'))
-        Blank()
-        Button({ type: ButtonType.Circle }) {
-          Text('×')
-            .fontSize(18)
-            .fontColor($r('app.color.text_color'))
-        }
-        .width(32)
-        .height(32)
-        .backgroundColor(Color.Transparent)
-        .onClick(() => {
-          this.isFloatSheetShow = false;
-        })
+          .margin({ bottom: 8 })
+        
+        Text('当前屏幕宽度过窄，可能影响正常使用。请尝试横屏或使用更大屏幕设备。')
+          .fontSize(14)
+          .fontColor($r('app.color.text_color'))
+          .opacity(0.7)
+          .textAlign(TextAlign.Center)
+          .width('80%')
+          .margin({ bottom: 24 })
+        
+        Button('继续使用')
+          .width('60%')
+          .height(44)
+          .fontSize(16)
+          .backgroundColor($r('app.color.history_button_color'))
+          .fontColor(Color.White)
+          .borderRadius(22)
       }
       .width('100%')
-      .height(48)
-      .padding({ left: 16, right: 8 })
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .justifyContent(FlexAlign.Center)
+  }
 
+  /**
+   * 单列紧凑布局（小屏）
+   */
+  @Builder
+  buildCompactLayout() {
+    Column() {
+      // 顶部按钮区域
+      this.buildTopBar();
+      
+      // 随机数模块（仅在大屏显示）
+      if (this.responsiveConfig.layoutMode !== LayoutMode.COMPACT) {
+        this.buildRandomModule();
+      }
+      
       // 显示区域
-      Column() {
-        Text(this.inputValue || '0')
-          .fontSize(this.inputValue.length > 8 ? 24 : 32)
-          .fontColor($r('app.color.input_text_color'))
-          .fontWeight(FontWeight.Medium)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
-          .textAlign(TextAlign.End)
-          .padding({ right: 16 })
-
-        if (this.calValue) {
-          Text(this.calValue)
-            .fontSize(20)
-            .fontColor('#007DFF')
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
-            .textAlign(TextAlign.End)
-            .padding({ right: 16, top: 4 })
-        }
-      }
-      .width('100%')
-      .height(80)
-      .justifyContent(FlexAlign.End)
-      .padding({ bottom: 8 })
-
+      this.buildDisplayArea();
+      
       // 按键区域
-      Column({ space: 8 }) {
-        Row({ space: 8 }) {
-          this.buildFloatKey('C', '#FF6B6B')
-          this.buildFloatKey('÷', '#E8F4FF')
-          this.buildFloatKey('×', '#E8F4FF')
-          this.buildFloatKey('⌫', '#E8F4FF')
-        }
-        Row({ space: 8 }) {
-          this.buildFloatKey('7')
-          this.buildFloatKey('8')
-          this.buildFloatKey('9')
-          this.buildFloatKey('-', '#E8F4FF')
-        }
-        Row({ space: 8 }) {
-          this.buildFloatKey('4')
-          this.buildFloatKey('5')
-          this.buildFloatKey('6')
-          this.buildFloatKey('+', '#E8F4FF')
-        }
-        Row({ space: 8 }) {
-          this.buildFloatKey('1')
-          this.buildFloatKey('2')
-          this.buildFloatKey('3')
-          this.buildFloatKey('=', '#007DFF', true)
-        }
-        Row({ space: 8 }) {
-          this.buildFloatKey('%')
-          this.buildFloatKey('0')
-          this.buildFloatKey('.')
-          Blank().layoutWeight(1)
-        }
-      }
-      .width('100%')
-      .padding({ left: 12, right: 12, bottom: 12 })
-      .layoutWeight(1)
+      this.buildKeypad();
     }
     .width('100%')
     .height('100%')
   }
 
   /**
-   * 构建悬浮计算器按键
+   * 扩展布局（大屏双列）
    */
   @Builder
-  buildFloatKey(label: string, bgColor: string = '#FFFFFF', isEquals: boolean = false) {
-    Column() {
-      Text(label)
-        .fontSize(20)
-        .fontColor(isEquals ? '#FFFFFF' : $r('app.color.text_color'))
-        .fontWeight(isEquals ? FontWeight.Bold : FontWeight.Normal)
+  buildExpandedLayout() {
+    Row() {
+      // 左侧：计算器主体
+      Column() {
+        // 顶部按钮区域
+        this.buildTopBar();
+        
+        // 随机数模块
+        this.buildRandomModule();
+        
+        // 显示区域
+        this.buildDisplayArea();
+        
+        // 按键区域
+        this.buildKeypad();
+      }
+      .width('60%')
+      .height('100%')
+      
+      // 右侧：历史记录区域
+      Column() {
+        this.buildHistoryPanel();
+      }
+      .width('40%')
+      .height('100%')
+      .backgroundColor($r('app.color.history_item_bg'))
+      .padding({ left: 16, right: 16, top: 16, bottom: 16 })
     }
-    .width(72)
-    .height(48)
-    .justifyContent(FlexAlign.Center)
-    .backgroundColor(bgColor)
-    .borderRadius(12)
-    .onClick(() => {
-      this.onFloatKeyPress(label);
+    .width('100%')
+    .height('100%')
+  }
+
+  /**
+   * 顶部按钮区域
+   */
+  @Builder
+  buildTopBar() {
+    Row() {
+      // 主题切换按钮
+      Button({ type: ButtonType.Circle }) {
+        if (this.currentThemeMode === ThemeMode.LIGHT) {
+          Text('🌙')
+            .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.8 : 20)
+        } else {
+          Text('☀️')
+            .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.8 : 20)
+        }
+      }
+      .width(this.responsiveSize ? this.responsiveSize.buttonHeight : 50)
+      .height(this.responsiveSize ? this.responsiveSize.buttonHeight : 50)
+      .backgroundColor($r('app.color.theme_button_color'))
+      .onClick(() => {
+        ThemeUtil.toggleTheme();
+      })
+
+      Blank()
+
+      // 历史记录按钮（仅在小屏显示）
+      if (this.responsiveConfig.layoutMode === LayoutMode.COMPACT ||
+          this.responsiveConfig.layoutMode === LayoutMode.STANDARD) {
+        Button({ type: ButtonType.Circle }) {
+          Text($r('app.string.history_button'))
+            .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.5 : 12)
+            .fontColor($r('app.color.text_color'))
+        }
+        .width(this.responsiveSize ? this.responsiveSize.buttonHeight : 50)
+        .height(this.responsiveSize ? this.responsiveSize.buttonHeight : 50)
+        .backgroundColor($r('app.color.history_button_color'))
+        .onClick(() => {
+          this.historyList = HistoryUtil.getHistoryList();
+          this.isHistoryDialogShow = true;
+        })
+      }
+    }
+    .width(CommonConstants.FULL_PERCENT)
+    .padding({
+      left: this.responsiveSize ? this.responsiveSize.margin : 22,
+      right: this.responsiveSize ? this.responsiveSize.margin : 22,
+      top: 20
     })
   }
 
   /**
-   * 悬浮计算器按键处理
+   * 随机数模块
    */
-  onFloatKeyPress(key: string): void {
-    switch (key) {
-      case 'C':
-        this.inputSymbol(Symbol.CLEAN);
-        break;
-      case '⌫':
-        this.inputSymbol(Symbol.DEL);
-        break;
-      case '=':
-        this.inputSymbol(Symbol.EQU);
-        break;
-      case '+':
-        this.inputSymbol(Symbol.ADD);
-        break;
-      case '-':
-        this.inputSymbol(Symbol.MIN);
-        break;
-      case '×':
-        this.inputSymbol(Symbol.MUL);
-        break;
-      case '÷':
-        this.inputSymbol(Symbol.DIV);
-        break;
-      default:
-        this.inputNumber(key);
-        break;
+  @Builder
+  buildRandomModule() {
+    Column() {
+      Row({ space: this.responsiveSize ? this.responsiveSize.buttonSpacing : 8 }) {
+        Text('随机数区间：')
+          .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.7 : 14)
+          .fontColor($r('app.color.text_color'))
+        
+        TextInput({ placeholder: '下限', text: this.randomMin })
+          .width(this.responsiveSize ? this.responsiveSize.buttonWidth * 1.2 : 80)
+          .height(this.responsiveSize ? this.responsiveSize.buttonHeight * 0.6 : 36)
+          .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.7 : 14)
+          .type(InputType.Number)
+          .textAlign(TextAlign.Center)
+          .onChange((value: string) => {
+            this.randomMin = value;
+            this.randomError = '';
+          })
+        
+        Text('~')
+          .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.8 : 16)
+          .fontColor($r('app.color.text_color'))
+          .fontWeight(FontWeight.Bold)
+        
+        TextInput({ placeholder: '上限', text: this.randomMax })
+          .width(this.responsiveSize ? this.responsiveSize.buttonWidth * 1.2 : 80)
+          .height(this.responsiveSize ? this.responsiveSize.buttonHeight * 0.6 : 36)
+          .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.7 : 14)
+          .type(InputType.Number)
+          .textAlign(TextAlign.Center)
+          .onChange((value: string) => {
+            this.randomMax = value;
+            this.randomError = '';
+          })
+        
+        Button('生成随机数')
+          .width(this.responsiveSize ? this.responsiveSize.buttonWidth * 1.3 : 90)
+          .height(this.responsiveSize ? this.responsiveSize.buttonHeight * 0.6 : 36)
+          .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.7 : 14)
+          .fontWeight(FontWeight.Medium)
+          .backgroundColor('#007DFF')
+          .fontColor(Color.White)
+          .borderRadius(this.responsiveSize ? this.responsiveSize.buttonRadius * 0.5 : 6)
+          .onClick(() => {
+            this.generateRandomNumber();
+          })
+      }
+      .width('100%')
+      .height(this.responsiveSize ? this.responsiveSize.buttonHeight * 0.6 : 36)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+      
+      if (this.randomError) {
+        Row() {
+          Text('⚠ ' + this.randomError)
+            .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.6 : 12)
+            .fontColor('#FF4444')
+        }
+        .width('100%')
+        .height(20)
+        .justifyContent(FlexAlign.Center)
+        .margin({ top: 4 })
+      }
     }
+    .width(CommonConstants.FULL_PERCENT)
+    .margin({
+      left: this.responsiveSize ? this.responsiveSize.margin : 22,
+      right: this.responsiveSize ? this.responsiveSize.margin : 22,
+      top: 12
+    })
+    .padding({
+      left: this.responsiveSize ? this.responsiveSize.padding : 12,
+      right: this.responsiveSize ? this.responsiveSize.padding : 12,
+      top: 10,
+      bottom: 10
+    })
+    .backgroundColor($r('app.color.history_item_bg'))
+    .borderRadius(this.responsiveSize ? this.responsiveSize.buttonRadius * 0.5 : 8)
+  }
+
+  /**
+   * 显示区域
+   */
+  @Builder
+  buildDisplayArea() {
+    Column() {
+      // 输入显示
+      Column() {
+        Scroll() {
+          Text(this.resultFormat(this.inputValue) || '0')
+            .fontSize(this.calculateInputFontSize())
+            .fontColor($r('app.color.input_text_color'))
+            .fontWeight(FontWeight.Medium)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .width('100%')
+        .scrollable(ScrollDirection.Horizontal)
+        .scrollBar(BarState.Off)
+        .align(Alignment.End)
+      }
+      .width('100%')
+      .height(this.responsiveSize ? this.responsiveSize.inputHeight : 86)
+      .justifyContent(FlexAlign.Center)
+      .padding({
+        right: this.responsiveSize ? this.responsiveSize.margin : 22
+      })
+      .backgroundColor($r('app.color.input_back_color'))
+      .borderRadius(this.responsiveSize ? this.responsiveSize.buttonRadius * 0.5 : 8)
+      
+      // 计算结果显示
+      if (this.calValue) {
+        Column() {
+          Text(this.resultFormat(this.calValue))
+            .fontSize(this.calculateResultFontSize())
+            .fontColor($r('app.color.text_color'))
+            .opacity(0.7)
+        }
+        .width('100%')
+        .height(this.responsiveSize ? this.responsiveSize.inputHeight * 0.5 : 43)
+        .alignItems(HorizontalAlign.End)
+        .padding({
+          right: this.responsiveSize ? this.responsiveSize.margin : 22
+        })
+      }
+    }
+    .width(CommonConstants.FULL_PERCENT)
+    .margin({
+      left: this.responsiveSize ? this.responsiveSize.margin : 22,
+      right: this.responsiveSize ? this.responsiveSize.margin : 22,
+      top: this.responsiveSize ? this.responsiveSize.margin : 20
+    })
+  }
+
+  /**
+   * 按键区域
+   */
+  @Builder
+  buildKeypad() {
+    Column() {
+      Column({ space: this.responsiveSize ? this.responsiveSize.buttonSpacing : 8 }) {
+        ForEach(keysModel.getPressKeys(), (rowItem: Array<PressKeysBean>, rowItemIndex?: number) => {
+          Row({ space: this.responsiveSize ? this.responsiveSize.buttonSpacing : 8 }) {
+            ForEach(rowItem, (keyItem: PressKeysBean, keyItemIndex?: number) => {
+              Column() {
+                if (keyItem.flag === 0) {
+                  // 图标按钮
+                  Image(keyItem.source !== undefined ? keyItem.source : '')
+                    .width(this.responsiveSize ? this.responsiveSize.buttonFontSize * 1.2 : 24)
+                    .height(this.responsiveSize ? this.responsiveSize.buttonFontSize * 1.2 : 24)
+                } else {
+                  // 文字按钮
+                  Text(keyItem.value)
+                    .fontSize(this.calculateButtonFontSize(keyItem.value))
+                    .fontColor($r('app.color.text_color'))
+                }
+              }
+              .width(this.responsiveSize ? this.responsiveSize.buttonWidth : 70)
+              .height(this.responsiveSize ? this.responsiveSize.buttonHeight : 60)
+              .borderWidth(1)
+              .borderColor($r('app.color.border_color'))
+              .borderRadius(this.responsiveSize ? this.responsiveSize.buttonRadius : 12)
+              .backgroundColor($r('app.color.key_back_color'))
+              .justifyContent(FlexAlign.Center)
+              .alignItems(HorizontalAlign.Center)
+              .onClick(() => {
+                if (keyItem.flag === 0) {
+                  this.inputSymbol(keyItem.value);
+                } else {
+                  this.inputNumber(keyItem.value);
+                }
+              })
+            }, (keyItem: PressKeysBean) => JSON.stringify(keyItem))
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.SpaceEvenly)
+        }, (item: Array<Array<PressKeysBean>>) => JSON.stringify(item))
+      }
+      .width('100%')
+      .height('100%')
+      .justifyContent(FlexAlign.SpaceEvenly)
+    }
+    .layoutWeight(1)
+    .width(CommonConstants.FULL_PERCENT)
+    .backgroundColor($r('app.color.row_back_color'))
+    .padding({
+      top: this.responsiveSize ? this.responsiveSize.padding : 8,
+      bottom: this.responsiveSize ? this.responsiveSize.padding : 8,
+      left: this.responsiveSize ? this.responsiveSize.padding : 8,
+      right: this.responsiveSize ? this.responsiveSize.padding : 8
+    })
+  }
+
+  /**
+   * 历史记录面板（大屏右侧）
+   */
+  @Builder
+  buildHistoryPanel() {
+    Column() {
+      // 标题
+      Row() {
+        Text($r('app.string.history_title'))
+          .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize : 18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_color'))
+        
+        Blank()
+        
+        Button($r('app.string.history_clear'))
+          .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.7 : 14)
+          .fontColor($r('app.color.clear_text_color'))
+          .backgroundColor(Color.Transparent)
+          .onClick(() => {
+            HistoryUtil.clearHistory();
+            this.historyList = [];
+          })
+      }
+      .width('100%')
+      .height(50)
+      .margin({ bottom: 16 })
+      
+      // 历史记录列表
+      if (this.historyList.length === 0) {
+        Column() {
+          Text($r('app.string.history_empty'))
+            .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.8 : 16)
+            .fontColor($r('app.color.text_color'))
+            .opacity(0.5)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+      } else {
+        List() {
+          ForEach(this.historyList, (item: HistoryItem, index: number) => {
+            ListItem() {
+              Column() {
+                Row() {
+                  Text(item.expression)
+                    .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.8 : 16)
+                    .fontColor($r('app.color.text_color'))
+                    .layoutWeight(1)
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  
+                  Text(' = ')
+                    .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.8 : 16)
+                    .fontColor($r('app.color.text_color'))
+                  
+                  Text(item.result)
+                    .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize * 0.8 : 16)
+                    .fontColor($r('app.color.history_result_color'))
+                    .fontWeight(FontWeight.Bold)
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
+                .width('100%')
+                .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+              }
+              .width('100%')
+              .backgroundColor($r('app.color.key_back_color'))
+              .borderRadius(this.responsiveSize ? this.responsiveSize.buttonRadius * 0.5 : 8)
+              .margin({ top: 4, bottom: 4 })
+              .onClick(() => {
+                this.fillFromHistory(item.result);
+              })
+            }
+          }, (item: HistoryItem) => item.timestamp.toString())
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .divider({
+          strokeWidth: 1,
+          color: $r('app.color.history_divider_color'),
+          startMargin: 10,
+          endMargin: 10
+        })
+      }
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  /**
+   * 计算输入框字号（动态调整）
+   */
+  calculateInputFontSize(): number {
+    if (!this.responsiveSize) {
+      return 32;
+    }
+    
+    const maxWidth = this.responsiveConfig.screenWidth - this.responsiveSize.margin * 2;
+    const maxFontSize = this.responsiveSize.inputFontSize;
+    
+    // 使用 ResponsiveUtil 的自适应字号计算
+    return ResponsiveUtil.calculateAdaptiveFontSize(
+      this.inputValue,
+      maxWidth,
+      maxFontSize,
+      maxFontSize * 0.4  // 最小字号为最大字号的 40%
+    );
+  }
+
+  /**
+   * 计算结果字号（动态调整）
+   */
+  calculateResultFontSize(): number {
+    if (!this.responsiveSize) {
+      return 20;
+    }
+    
+    const maxWidth = this.responsiveConfig.screenWidth - this.responsiveSize.margin * 2;
+    const maxFontSize = this.responsiveSize.resultFontSize;
+    
+    return ResponsiveUtil.calculateAdaptiveFontSize(
+      this.calValue,
+      maxWidth,
+      maxFontSize,
+      maxFontSize * 0.5
+    );
+  }
+
+  /**
+   * 计算按钮字号
+   */
+  calculateButtonFontSize(value: string): number {
+    if (!this.responsiveSize) {
+      return 18;
+    }
+    
+    // 小数点使用更大的字号
+    if (value === CommonConstants.DOTS) {
+      return this.responsiveSize.buttonFontSize * 1.3;
+    }
+    
+    return this.responsiveSize.buttonFontSize;
   }
 
   /**
@@ -547,30 +736,6 @@ struct HomePage {
   }
 
   /**
-   * 开启悬浮窗计算器
-   */
-  async openFloatWindow() {
-    promptAction.showToast({ message: '正在开启悬浮窗...', duration: 1000 });
-    
-    const context = AppStorage.get<common.UIAbilityContext>('uiAbilityContext');
-    if (!context) {
-      promptAction.showToast({ message: '获取上下文失败', duration: 2000 });
-      Logger.error('HomePage', 'UIAbilityContext is null');
-      return;
-    }
-    
-    const success = await FloatWindowUtil.showFloatWindow(context);
-    if (success) {
-      promptAction.showToast({ message: '悬浮窗已开启', duration: 1500 });
-      Logger.info('HomePage', 'Float window opened successfully');
-    } else {
-      promptAction.showToast({ message: '悬浮窗开启失败', duration: 2000 });
-      Logger.error('HomePage', 'Failed to open float window');
-    }
-  }
-
-
-  /**
    * Input Symbols.
    *
    * @param value Input Operators.
@@ -604,6 +769,8 @@ struct HomePage {
           this.calValue = '';
           this.expressions = [];
           this.expressions.push(this.inputValue);
+          // 保存状态到AppStorage（用于迁移）
+          this.saveCalculatorState();
         })
         break;
       default:
@@ -611,6 +778,18 @@ struct HomePage {
         break;
     }
     this.formatInputValue();
+    // 保存状态到AppStorage（用于迁移）
+    this.saveCalculatorState();
+  }
+
+  /**
+   * 保存计算器状态到AppStorage
+   * 用于分布式迁移时读取当前状态
+   */
+  private saveCalculatorState(): void {
+    AppStorage.setOrCreate('calculator_inputValue', this.inputValue);
+    AppStorage.setOrCreate('calculator_calValue', this.calValue);
+    AppStorage.setOrCreate('calculator_expressions', [...this.expressions]);
   }
 
   /**
@@ -643,6 +822,8 @@ struct HomePage {
     if (value !== CommonConstants.DOTS) {
       this.getResult();
     }
+    // 保存状态到AppStorage（用于迁移）
+    this.saveCalculatorState();
   }
 
   /**

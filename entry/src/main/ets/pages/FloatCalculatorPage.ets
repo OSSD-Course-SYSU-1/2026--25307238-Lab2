@@ -16,6 +16,7 @@
 import { window } from '@kit.ArkUI';
 import CalculateUtil from '../common/util/CalculateUtil';
 import FloatWindowUtil from '../common/util/FloatWindowUtil';
+import ResponsiveUtil, { Breakpoint, Orientation, LayoutMode, ResponsiveConfig, ResponsiveSize } from '../common/util/ResponsiveUtil';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'FloatCalculatorPage';
@@ -38,12 +39,52 @@ struct FloatCalculatorPage {
   private startY: number = 0;
   private windowStartX: number = 0;
   private windowStartY: number = 0;
+  
+  // 响应式配置
+  @StorageLink('responsiveConfig') @Watch('onResponsiveConfigChange') responsiveConfig: ResponsiveConfig = {
+    minWidth: 280,
+    breakpoint: Breakpoint.SM,
+    orientation: Orientation.PORTRAIT,
+    layoutMode: LayoutMode.COMPACT,
+    screenWidth: 360,
+    screenHeight: 640
+  };
+  @State responsiveSize: ResponsiveSize | null = null;
 
   aboutToAppear(): void {
     // 获取悬浮窗实例
     this.floatWindow = FloatWindowUtil.getFloatWindow();
     hilog.info(DOMAIN, TAG, 'FloatCalculatorPage aboutToAppear, window: %{public}s', 
       this.floatWindow ? 'not null' : 'null');
+    
+    // 初始化响应式尺寸（悬浮窗使用较小的尺寸）
+    this.responsiveSize = this.getFloatResponsiveSize();
+  }
+  
+  /** 监听响应式配置变化 */
+  onResponsiveConfigChange(): void {
+    // 悬浮窗使用固定尺寸，不随屏幕变化
+    hilog.info(DOMAIN, TAG, 'Responsive config changed, but float window uses fixed size');
+  }
+  
+  /**
+   * 获取悬浮窗专用的响应式尺寸
+   * 悬浮窗尺寸较小，使用特殊的尺寸配置
+   */
+  private getFloatResponsiveSize(): ResponsiveSize {
+    // 悬浮窗固定宽度约 240vp，使用紧凑布局
+    return {
+      buttonWidth: 54,
+      buttonHeight: 42,
+      buttonRadius: 8,
+      buttonSpacing: 6,
+      inputHeight: 70,
+      inputFontSize: 26,
+      resultFontSize: 18,
+      buttonFontSize: 18,
+      padding: 8,
+      margin: 12
+    };
   }
 
   build() {
@@ -126,20 +167,24 @@ struct FloatCalculatorPage {
   buildDisplayArea() {
     Column() {
       // 输入表达式
-      Text(this.inputValue || '0')
-        .fontSize(this.inputValue.length > 8 ? 20 : 26)
-        .fontColor('#182431')
-        .fontWeight(FontWeight.Medium)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .width('100%')
-        .textAlign(TextAlign.End)
-        .padding({ right: 12 })
+      Scroll() {
+        Text(this.inputValue || '0')
+          .fontSize(this.calculateFloatInputFontSize())
+          .fontColor('#182431')
+          .fontWeight(FontWeight.Medium)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .width('100%')
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
+      .align(Alignment.End)
+      .padding({ right: 12 })
 
       // 计算结果
       if (this.calValue) {
         Text(this.calValue)
-          .fontSize(18)
+          .fontSize(this.responsiveSize ? this.responsiveSize.resultFontSize : 18)
           .fontColor('#007DFF')
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -149,9 +194,30 @@ struct FloatCalculatorPage {
       }
     }
     .width('100%')
-    .height(70)
+    .height(this.responsiveSize ? this.responsiveSize.inputHeight : 70)
     .justifyContent(FlexAlign.End)
     .padding({ bottom: 8 })
+  }
+  
+  /**
+   * 计算悬浮窗输入框字号（动态调整）
+   */
+  private calculateFloatInputFontSize(): number {
+    if (!this.responsiveSize) {
+      return 26;
+    }
+    
+    // 悬浮窗宽度约 240vp
+    const maxWidth = 220;
+    const maxFontSize = this.responsiveSize.inputFontSize;
+    
+    // 使用 ResponsiveUtil 的自适应字号计算
+    return ResponsiveUtil.calculateAdaptiveFontSize(
+      this.inputValue,
+      maxWidth,
+      maxFontSize,
+      16  // 最小字号
+    );
   }
 
   /**
@@ -159,9 +225,9 @@ struct FloatCalculatorPage {
    */
   @Builder
   buildKeypad() {
-    Column({ space: 6 }) {
+    Column({ space: this.responsiveSize ? this.responsiveSize.buttonSpacing : 6 }) {
       // 第一行：C, ÷, ×, 退格
-      Row({ space: 6 }) {
+      Row({ space: this.responsiveSize ? this.responsiveSize.buttonSpacing : 6 }) {
         this.buildKey('C', '#FF6B6B')
         this.buildKey('÷', '#E8F4FF')
         this.buildKey('×', '#E8F4FF')
@@ -169,7 +235,7 @@ struct FloatCalculatorPage {
       }
 
       // 第二行：7, 8, 9, -
-      Row({ space: 6 }) {
+      Row({ space: this.responsiveSize ? this.responsiveSize.buttonSpacing : 6 }) {
         this.buildKey('7')
         this.buildKey('8')
         this.buildKey('9')
@@ -177,7 +243,7 @@ struct FloatCalculatorPage {
       }
 
       // 第三行：4, 5, 6, +
-      Row({ space: 6 }) {
+      Row({ space: this.responsiveSize ? this.responsiveSize.buttonSpacing : 6 }) {
         this.buildKey('4')
         this.buildKey('5')
         this.buildKey('6')
@@ -185,7 +251,7 @@ struct FloatCalculatorPage {
       }
 
       // 第四行：1, 2, 3, =
-      Row({ space: 6 }) {
+      Row({ space: this.responsiveSize ? this.responsiveSize.buttonSpacing : 6 }) {
         this.buildKey('1')
         this.buildKey('2')
         this.buildKey('3')
@@ -193,7 +259,7 @@ struct FloatCalculatorPage {
       }
 
       // 第五行：%, 0, .
-      Row({ space: 6 }) {
+      Row({ space: this.responsiveSize ? this.responsiveSize.buttonSpacing : 6 }) {
         this.buildKey('%')
         this.buildKey('0')
         this.buildKey('.')
@@ -201,7 +267,11 @@ struct FloatCalculatorPage {
       }
     }
     .width('100%')
-    .padding({ left: 8, right: 8, bottom: 8 })
+    .padding({
+      left: this.responsiveSize ? this.responsiveSize.padding : 8,
+      right: this.responsiveSize ? this.responsiveSize.padding : 8,
+      bottom: this.responsiveSize ? this.responsiveSize.padding : 8
+    })
     .layoutWeight(1)
   }
 
@@ -212,15 +282,15 @@ struct FloatCalculatorPage {
   buildKey(label: string, bgColor: string = '#FFFFFF', isEquals: boolean = false) {
     Column() {
       Text(label)
-        .fontSize(18)
+        .fontSize(this.responsiveSize ? this.responsiveSize.buttonFontSize : 18)
         .fontColor(isEquals ? '#FFFFFF' : '#182431')
         .fontWeight(isEquals ? FontWeight.Bold : FontWeight.Normal)
     }
-    .width(54)
-    .height(42)
+    .width(this.responsiveSize ? this.responsiveSize.buttonWidth : 54)
+    .height(this.responsiveSize ? this.responsiveSize.buttonHeight : 42)
     .justifyContent(FlexAlign.Center)
     .backgroundColor(bgColor)
-    .borderRadius(8)
+    .borderRadius(this.responsiveSize ? this.responsiveSize.buttonRadius : 8)
     .onClick(() => {
       this.onKeyPress(label);
     })

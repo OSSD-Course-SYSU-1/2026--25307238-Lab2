@@ -8,7 +8,6 @@ interface HomePage_Params {
     isHistoryDialogShow?: boolean;
     historyList?: Array<HistoryItem>;
     currentThemeMode?: number;
-    isFloatSheetShow?: boolean;
     randomMin?: string;
     randomMax?: string;
     randomError?: string;
@@ -18,12 +17,10 @@ import CalculateUtil from "@bundle:com.example.simplecalculator/entry/ets/common
 import CheckEmptyUtil from "@bundle:com.example.simplecalculator/entry/ets/common/util/CheckEmptyUtil";
 import HistoryUtil from "@bundle:com.example.simplecalculator/entry/ets/common/util/HistoryUtil";
 import ThemeUtil, { ThemeMode } from "@bundle:com.example.simplecalculator/entry/ets/common/util/ThemeUtil";
-import FloatWindowUtil from "@bundle:com.example.simplecalculator/entry/ets/common/util/FloatWindowUtil";
 import keysModel from "@bundle:com.example.simplecalculator/entry/ets/viewmodel/PresskeysViewModel";
 import type { PressKeysBean } from '../viewmodel/PressKeysItem';
 import type { HistoryItem } from '../viewmodel/HistoryItem';
 import { CommonConstants, Symbol } from "@bundle:com.example.simplecalculator/entry/ets/common/constants/CommonConstants";
-import type common from "@ohos:app.ability.common";
 import promptAction from "@ohos:promptAction";
 class HomePage extends ViewPU {
     constructor(parent, params, __localStorage, elmtId = -1, paramsLambda = undefined, extraInfo) {
@@ -37,7 +34,6 @@ class HomePage extends ViewPU {
         this.__isHistoryDialogShow = new ObservedPropertySimplePU(false, this, "isHistoryDialogShow");
         this.__historyList = new ObservedPropertyObjectPU([], this, "historyList");
         this.__currentThemeMode = this.createStorageLink('currentThemeMode', ThemeMode.LIGHT, "currentThemeMode");
-        this.__isFloatSheetShow = new ObservedPropertySimplePU(false, this, "isFloatSheetShow");
         this.__randomMin = new ObservedPropertySimplePU('', this, "randomMin");
         this.__randomMax = new ObservedPropertySimplePU('', this, "randomMax");
         this.__randomError = new ObservedPropertySimplePU('', this, "randomError");
@@ -60,9 +56,6 @@ class HomePage extends ViewPU {
         if (params.historyList !== undefined) {
             this.historyList = params.historyList;
         }
-        if (params.isFloatSheetShow !== undefined) {
-            this.isFloatSheetShow = params.isFloatSheetShow;
-        }
         if (params.randomMin !== undefined) {
             this.randomMin = params.randomMin;
         }
@@ -81,7 +74,6 @@ class HomePage extends ViewPU {
         this.__isHistoryDialogShow.purgeDependencyOnElmtId(rmElmtId);
         this.__historyList.purgeDependencyOnElmtId(rmElmtId);
         this.__currentThemeMode.purgeDependencyOnElmtId(rmElmtId);
-        this.__isFloatSheetShow.purgeDependencyOnElmtId(rmElmtId);
         this.__randomMin.purgeDependencyOnElmtId(rmElmtId);
         this.__randomMax.purgeDependencyOnElmtId(rmElmtId);
         this.__randomError.purgeDependencyOnElmtId(rmElmtId);
@@ -92,7 +84,6 @@ class HomePage extends ViewPU {
         this.__isHistoryDialogShow.aboutToBeDeleted();
         this.__historyList.aboutToBeDeleted();
         this.__currentThemeMode.aboutToBeDeleted();
-        this.__isFloatSheetShow.aboutToBeDeleted();
         this.__randomMin.aboutToBeDeleted();
         this.__randomMax.aboutToBeDeleted();
         this.__randomError.aboutToBeDeleted();
@@ -138,14 +129,6 @@ class HomePage extends ViewPU {
     set currentThemeMode(newValue: number) {
         this.__currentThemeMode.set(newValue);
     }
-    /** 悬浮计算器Sheet显示状态 */
-    private __isFloatSheetShow: ObservedPropertySimplePU<boolean>;
-    get isFloatSheetShow() {
-        return this.__isFloatSheetShow.get();
-    }
-    set isFloatSheetShow(newValue: boolean) {
-        this.__isFloatSheetShow.set(newValue);
-    }
     /** 随机数下限 */
     private __randomMin: ObservedPropertySimplePU<string>;
     get randomMin() {
@@ -176,6 +159,29 @@ class HomePage extends ViewPU {
     aboutToAppear(): void {
         // 初始化主题管理
         ThemeUtil.init();
+        // ========== 迁移恢复处理 ==========
+        // 检查是否为迁移恢复状态
+        const isRestored = AppStorage.get<boolean>('calculator_isRestored');
+        if (isRestored) {
+            // 从AppStorage恢复计算器状态
+            const restoredInputValue = AppStorage.get<string>('calculator_inputValue');
+            const restoredCalValue = AppStorage.get<string>('calculator_calValue');
+            const restoredExpressions = AppStorage.get<Array<string>>('calculator_expressions');
+            if (restoredInputValue !== undefined) {
+                this.inputValue = restoredInputValue;
+            }
+            if (restoredCalValue !== undefined) {
+                this.calValue = restoredCalValue;
+            }
+            if (restoredExpressions !== undefined && restoredExpressions.length > 0) {
+                this.expressions = [...restoredExpressions];
+            }
+            // 清除迁移恢复标记
+            AppStorage.setOrCreate('calculator_isRestored', false);
+            // 刷新历史记录列表
+            this.historyList = HistoryUtil.getHistoryList();
+            Logger.info('HomePage', 'Calculator state restored from continuation');
+        }
     }
     initialRender() {
         this.observeComponentCreation2((elmtId, isInitialRender) => {
@@ -189,14 +195,6 @@ class HomePage extends ViewPU {
                 backgroundColor: { "id": 16777262, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" },
                 dragBar: true,
                 showClose: true
-            });
-            Column.bindSheet({ value: this.isFloatSheetShow, changeEvent: newValue => { this.isFloatSheetShow = newValue; } }, { builder: () => {
-                    this.floatCalculatorSheetBuilder.call(this);
-                } }, {
-                height: 420,
-                backgroundColor: { "id": 16777223, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" },
-                dragBar: true,
-                showClose: false
             });
         }, Column);
         this.observeComponentCreation2((elmtId, isInitialRender) => {
@@ -261,30 +259,6 @@ class HomePage extends ViewPU {
             Blank.create();
         }, Blank);
         Blank.pop();
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            // 悬浮窗按钮（右上角）
-            Button.createWithChild({ type: ButtonType.Circle });
-            // 悬浮窗按钮（右上角）
-            Button.width({ "id": 16777266, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
-            // 悬浮窗按钮（右上角）
-            Button.height({ "id": 16777266, "type": 10002, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
-            // 悬浮窗按钮（右上角）
-            Button.backgroundColor({ "id": 16777261, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
-            // 悬浮窗按钮（右上角）
-            Button.margin({ right: 8 });
-            // 悬浮窗按钮（右上角）
-            Button.onClick(() => {
-                // 显示悬浮计算器Sheet
-                this.isFloatSheetShow = true;
-            });
-        }, Button);
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Text.create('📱');
-            Text.fontSize(16);
-        }, Text);
-        Text.pop();
-        // 悬浮窗按钮（右上角）
-        Button.pop();
         this.observeComponentCreation2((elmtId, isInitialRender) => {
             // 历史记录按钮（右上角）
             Button.createWithChild({ type: ButtonType.Circle });
@@ -536,216 +510,6 @@ class HomePage extends ViewPU {
         Column.pop();
     }
     /**
-     * 悬浮计算器Sheet内容构建器
-     */
-    floatCalculatorSheetBuilder(parent = null) {
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Column.create();
-            Column.width('100%');
-            Column.height('100%');
-        }, Column);
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            // 标题栏
-            Row.create();
-            // 标题栏
-            Row.width('100%');
-            // 标题栏
-            Row.height(48);
-            // 标题栏
-            Row.padding({ left: 16, right: 8 });
-        }, Row);
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Text.create('快捷计算器');
-            Text.fontSize(18);
-            Text.fontWeight(FontWeight.Bold);
-            Text.fontColor({ "id": 16777228, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
-        }, Text);
-        Text.pop();
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Blank.create();
-        }, Blank);
-        Blank.pop();
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Button.createWithChild({ type: ButtonType.Circle });
-            Button.width(32);
-            Button.height(32);
-            Button.backgroundColor(Color.Transparent);
-            Button.onClick(() => {
-                this.isFloatSheetShow = false;
-            });
-        }, Button);
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Text.create('×');
-            Text.fontSize(18);
-            Text.fontColor({ "id": 16777228, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
-        }, Text);
-        Text.pop();
-        Button.pop();
-        // 标题栏
-        Row.pop();
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            // 显示区域
-            Column.create();
-            // 显示区域
-            Column.width('100%');
-            // 显示区域
-            Column.height(80);
-            // 显示区域
-            Column.justifyContent(FlexAlign.End);
-            // 显示区域
-            Column.padding({ bottom: 8 });
-        }, Column);
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Text.create(this.inputValue || '0');
-            Text.fontSize(this.inputValue.length > 8 ? 24 : 32);
-            Text.fontColor({ "id": 16777275, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
-            Text.fontWeight(FontWeight.Medium);
-            Text.maxLines(1);
-            Text.textOverflow({ overflow: TextOverflow.Ellipsis });
-            Text.width('100%');
-            Text.textAlign(TextAlign.End);
-            Text.padding({ right: 16 });
-        }, Text);
-        Text.pop();
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            If.create();
-            if (this.calValue) {
-                this.ifElseBranchUpdateFunction(0, () => {
-                    this.observeComponentCreation2((elmtId, isInitialRender) => {
-                        Text.create(this.calValue);
-                        Text.fontSize(20);
-                        Text.fontColor('#007DFF');
-                        Text.maxLines(1);
-                        Text.textOverflow({ overflow: TextOverflow.Ellipsis });
-                        Text.width('100%');
-                        Text.textAlign(TextAlign.End);
-                        Text.padding({ right: 16, top: 4 });
-                    }, Text);
-                    Text.pop();
-                });
-            }
-            else {
-                this.ifElseBranchUpdateFunction(1, () => {
-                });
-            }
-        }, If);
-        If.pop();
-        // 显示区域
-        Column.pop();
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            // 按键区域
-            Column.create({ space: 8 });
-            // 按键区域
-            Column.width('100%');
-            // 按键区域
-            Column.padding({ left: 12, right: 12, bottom: 12 });
-            // 按键区域
-            Column.layoutWeight(1);
-        }, Column);
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Row.create({ space: 8 });
-        }, Row);
-        this.buildFloatKey.bind(this)('C', '#FF6B6B');
-        this.buildFloatKey.bind(this)('÷', '#E8F4FF');
-        this.buildFloatKey.bind(this)('×', '#E8F4FF');
-        this.buildFloatKey.bind(this)('⌫', '#E8F4FF');
-        Row.pop();
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Row.create({ space: 8 });
-        }, Row);
-        this.buildFloatKey.bind(this)('7');
-        this.buildFloatKey.bind(this)('8');
-        this.buildFloatKey.bind(this)('9');
-        this.buildFloatKey.bind(this)('-', '#E8F4FF');
-        Row.pop();
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Row.create({ space: 8 });
-        }, Row);
-        this.buildFloatKey.bind(this)('4');
-        this.buildFloatKey.bind(this)('5');
-        this.buildFloatKey.bind(this)('6');
-        this.buildFloatKey.bind(this)('+', '#E8F4FF');
-        Row.pop();
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Row.create({ space: 8 });
-        }, Row);
-        this.buildFloatKey.bind(this)('1');
-        this.buildFloatKey.bind(this)('2');
-        this.buildFloatKey.bind(this)('3');
-        this.buildFloatKey.bind(this)('=', '#007DFF', true);
-        Row.pop();
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Row.create({ space: 8 });
-        }, Row);
-        this.buildFloatKey.bind(this)('%');
-        this.buildFloatKey.bind(this)('0');
-        this.buildFloatKey.bind(this)('.');
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Blank.create();
-            Blank.layoutWeight(1);
-        }, Blank);
-        Blank.pop();
-        Row.pop();
-        // 按键区域
-        Column.pop();
-        Column.pop();
-    }
-    /**
-     * 构建悬浮计算器按键
-     */
-    buildFloatKey(label: string, bgColor: string = '#FFFFFF', isEquals: boolean = false, parent = null) {
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Column.create();
-            Column.width(72);
-            Column.height(48);
-            Column.justifyContent(FlexAlign.Center);
-            Column.backgroundColor(bgColor);
-            Column.borderRadius(12);
-            Column.onClick(() => {
-                this.onFloatKeyPress(label);
-            });
-        }, Column);
-        this.observeComponentCreation2((elmtId, isInitialRender) => {
-            Text.create(label);
-            Text.fontSize(20);
-            Text.fontColor(isEquals ? '#FFFFFF' : { "id": 16777228, "type": 10001, params: [], "bundleName": "com.example.simplecalculator", "moduleName": "entry" });
-            Text.fontWeight(isEquals ? FontWeight.Bold : FontWeight.Normal);
-        }, Text);
-        Text.pop();
-        Column.pop();
-    }
-    /**
-     * 悬浮计算器按键处理
-     */
-    onFloatKeyPress(key: string): void {
-        switch (key) {
-            case 'C':
-                this.inputSymbol(Symbol.CLEAN);
-                break;
-            case '⌫':
-                this.inputSymbol(Symbol.DEL);
-                break;
-            case '=':
-                this.inputSymbol(Symbol.EQU);
-                break;
-            case '+':
-                this.inputSymbol(Symbol.ADD);
-                break;
-            case '-':
-                this.inputSymbol(Symbol.MIN);
-                break;
-            case '×':
-                this.inputSymbol(Symbol.MUL);
-                break;
-            case '÷':
-                this.inputSymbol(Symbol.DIV);
-                break;
-            default:
-                this.inputNumber(key);
-                break;
-        }
-    }
-    /**
      * 历史记录弹窗内容构建器
      */
     historySheetBuilder(parent = null) {
@@ -936,27 +700,6 @@ class HomePage extends ViewPU {
         this.inputValue = result;
     }
     /**
-     * 开启悬浮窗计算器
-     */
-    async openFloatWindow() {
-        promptAction.showToast({ message: '正在开启悬浮窗...', duration: 1000 });
-        const context = AppStorage.get<common.UIAbilityContext>('uiAbilityContext');
-        if (!context) {
-            promptAction.showToast({ message: '获取上下文失败', duration: 2000 });
-            Logger.error('HomePage', 'UIAbilityContext is null');
-            return;
-        }
-        const success = await FloatWindowUtil.showFloatWindow(context);
-        if (success) {
-            promptAction.showToast({ message: '悬浮窗已开启', duration: 1500 });
-            Logger.info('HomePage', 'Float window opened successfully');
-        }
-        else {
-            promptAction.showToast({ message: '悬浮窗开启失败', duration: 2000 });
-            Logger.error('HomePage', 'Failed to open float window');
-        }
-    }
-    /**
      * Input Symbols.
      *
      * @param value Input Operators.
@@ -990,6 +733,8 @@ class HomePage extends ViewPU {
                     this.calValue = '';
                     this.expressions = [];
                     this.expressions.push(this.inputValue);
+                    // 保存状态到AppStorage（用于迁移）
+                    this.saveCalculatorState();
                 });
                 break;
             default:
@@ -997,6 +742,17 @@ class HomePage extends ViewPU {
                 break;
         }
         this.formatInputValue();
+        // 保存状态到AppStorage（用于迁移）
+        this.saveCalculatorState();
+    }
+    /**
+     * 保存计算器状态到AppStorage
+     * 用于分布式迁移时读取当前状态
+     */
+    private saveCalculatorState(): void {
+        AppStorage.setOrCreate('calculator_inputValue', this.inputValue);
+        AppStorage.setOrCreate('calculator_calValue', this.calValue);
+        AppStorage.setOrCreate('calculator_expressions', [...this.expressions]);
     }
     /**
      * Enter numbers.
@@ -1029,6 +785,8 @@ class HomePage extends ViewPU {
         if (value !== CommonConstants.DOTS) {
             this.getResult();
         }
+        // 保存状态到AppStorage（用于迁移）
+        this.saveCalculatorState();
     }
     /**
      * Verify that you can enter.
